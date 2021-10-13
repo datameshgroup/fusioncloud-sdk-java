@@ -16,12 +16,18 @@ public class KEKConfig {
 		InputStream input = new FileInputStream(CONFIG_LOCATION);
 		prop.load(input);
 
+		this.value = prop.getProperty("key.value");
 		this.keyIdentifier = prop.getProperty("key.identifier");
 		this.keyVersion = prop.getProperty("key.version");
 	}
 
+	private String value;
 	private String keyIdentifier;
 	private String keyVersion;
+
+	public String getValue() {
+		return value;
+	}
 
 	public String getKeyIdentifier() {
 		return keyIdentifier;

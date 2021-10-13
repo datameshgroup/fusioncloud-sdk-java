@@ -36,16 +36,15 @@ public class Crypto {
 		return randomKey;
 	}
 
-	public static byte[] generateEncryptedKey(byte[] randomKey, String masterKey)
+	public static byte[] generateEncryptedKey(byte[] randomKey, String KEK)
 			throws NoSuchPaddingException, InvalidAlgorithmParameterException, NoSuchAlgorithmException,
 			IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
-		return encrypt(randomKey, masterKey);
+		return crypt(Cipher.ENCRYPT_MODE, randomKey, KEK);
 	}
 
-	public static byte[] encrypt(byte[] value, String key) throws InvalidKeyException, NoSuchAlgorithmException,
+	public static byte[] crypt(int operation, byte[] value, String key) throws InvalidKeyException, NoSuchAlgorithmException,
 			NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException {
-
 		byte[] keyBytes = hexStringToByteArray(key);
 
 		// add 8 bytes to satisfy key length requirement
@@ -59,18 +58,18 @@ public class Crypto {
 		IvParameterSpec ivParameterSpec = new IvParameterSpec(new byte[8]);
 		SecretKey secretKey = new SecretKeySpec(keyBytes, SECRET_KEY_ALGORITHM);
 		Cipher cipherEncrpyt = Cipher.getInstance(CIPHER_MODE);
-		cipherEncrpyt.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec);
+		cipherEncrpyt.init(operation, secretKey, ivParameterSpec);
 
 		return cipherEncrpyt.doFinal(value);
 	}
 
-	public static String generateMAC(String request, String key) throws UnsupportedEncodingException,
+	public static String generateMAC(String request, String randomKeyHex) throws UnsupportedEncodingException,
 			NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException,
 			IllegalBlockSizeException, BadPaddingException, InvalidKeyException, InvalidKeySpecException {
 
 		byte[] hashResults = getSHA(request);
 		byte[] hashAppendedBytes = append8Bytes(hashResults);
-		byte[] encrypt = encrypt(hashAppendedBytes, key);
+		byte[] encrypt = crypt(Cipher.ENCRYPT_MODE, hashAppendedBytes, randomKeyHex);
 		byte[] last8bytes = getLast8Bytes(encrypt);
 
 		return byteArrayToHexString(last8bytes);
