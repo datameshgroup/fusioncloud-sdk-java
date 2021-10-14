@@ -32,15 +32,14 @@ import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
 
+import au.com.dmg.fusion.SaleToPOI;
 import au.com.dmg.fusion.config.FusionClientConfig;
 import au.com.dmg.fusion.exception.NotConnectedException;
+import au.com.dmg.fusion.request.SaleToPOIRequest;
+import au.com.dmg.fusion.response.SaleToPOIResponse;
 import au.com.dmg.fusion.util.SaleToPOIDecoder;
 import au.com.dmg.fusion.util.SaleToPOIRequestEncoder;
 import au.com.dmg.fusion.util.SaleToPOIResponseEncoder;
-
-import au.com.dmg.fusion.SaleToPOI;
-import au.com.dmg.fusion.request.SaleToPOIRequest;
-import au.com.dmg.fusion.response.SaleToPOIResponse;
 
 /**
  * Provides the necessary methods to establish connection and communicate with a
@@ -154,7 +153,7 @@ public class FusionClient {
 		setErrorHandler(new FusionClient.ErrorHandler() {
 			@Override
 			public void handleError(Session session, Throwable t) {
-				LOGGER.info(t.getMessage());
+				LOGGER.log(Level.SEVERE, t.getMessage());
 			}
 		});
 	}
@@ -188,7 +187,7 @@ public class FusionClient {
 	}
 
 	@OnError
-	public void error(Session session, Throwable t) {
+	public void error(Session session, Throwable t) throws Exception {
 		LOGGER.info("An error occurred");
 
 		if (this.errorHandler != null) {
@@ -262,7 +261,7 @@ public class FusionClient {
 	}
 
 	public static interface ErrorHandler {
-		public void handleError(Session session, Throwable t);
+		public void handleError(Session session, Throwable t) throws Exception;
 	}
 
 	/**
