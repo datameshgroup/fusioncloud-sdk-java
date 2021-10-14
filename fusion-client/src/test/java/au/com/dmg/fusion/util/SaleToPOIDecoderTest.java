@@ -1,18 +1,20 @@
 package au.com.dmg.fusion.util;
 
-import au.com.dmg.fusion.request.SaleToPOIRequest;
-import au.com.dmg.fusion.response.SaleToPOIResponse;
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import javax.websocket.DecodeException;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import javax.websocket.DecodeException;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import au.com.dmg.fusion.request.SaleToPOIRequest;
+import au.com.dmg.fusion.response.SaleToPOIResponse;
 
 public class SaleToPOIDecoderTest {
 
@@ -21,6 +23,8 @@ public class SaleToPOIDecoderTest {
 	@Before
 	public void init() throws UnsupportedEncodingException, IOException {
 		this.decoder = new SaleToPOIDecoder();
+		
+		System.setProperty("config.location", "src/test/resources/config.properties");
 	}
 
 	@Test

@@ -47,14 +47,16 @@ public class SaleToPOIDecoder implements Decoder.Text<SaleToPOI> {
 			throw new DecodeException(s, e.getMessage());
 		}
 
-		MessageHeader messageHeader = message.getRequest() != null ? message.getRequest().getMessageHeader()
-				: message.getResponse() != null ? message.getResponse().getMessageHeader() : null;
+		SaleToPOI messageWrapper = message.getRequest() != null ? message.getRequest()
+				: message.getResponse() != null ? message.getResponse() : null;
+
+		MessageHeader messageHeader = messageWrapper.getMessageHeader();
 		if (messageHeader == null) {
 			throw new SecurityTrailerValidationException(s, "Message header cannot be empty.");
 		}
 
 		try {
-			SecurityTrailerUtil.validateSecurityTrailer(message.getResponse().getSecurityTrailer(),
+			SecurityTrailerUtil.validateSecurityTrailer(messageWrapper.getSecurityTrailer(),
 					KEKConfig.getInstance().getValue(), messageHeader.getMessageCategory(),
 					messageHeader.getMessageType(), s);
 
