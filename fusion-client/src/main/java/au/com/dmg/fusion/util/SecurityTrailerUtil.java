@@ -1,28 +1,28 @@
 package au.com.dmg.fusion.util;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
+import java.io.UnsupportedEncodingException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Collections;
-import java.util.Map;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.naming.ConfigurationException;
 
 import com.squareup.moshi.JsonAdapter;
+import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
-import com.squareup.moshi.Types;
 
 import au.com.dmg.fusion.MessageHeader;
 import au.com.dmg.fusion.config.KEKConfig;
 import au.com.dmg.fusion.data.MessageCategory;
 import au.com.dmg.fusion.data.MessageType;
 import au.com.dmg.fusion.exception.SecurityTrailerValidationException;
+import au.com.dmg.fusion.model.SaleToPOIString;
 import au.com.dmg.fusion.request.Request;
 import au.com.dmg.fusion.request.paymentrequest.carddata.KEKIdentifier;
 import au.com.dmg.fusion.security.Crypto;
@@ -38,8 +38,8 @@ public class SecurityTrailerUtil {
 
 	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, String KEK)
 			throws InvalidKeyException, NoSuchPaddingException, InvalidAlgorithmParameterException,
-			NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException,
-			IOException {
+			NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, UnsupportedEncodingException,
+			InvalidKeySpecException, ConfigurationException {
 
 		// KEK encrypted key
 		byte[] key = Crypto.generate16ByteKey();
@@ -70,9 +70,10 @@ public class SecurityTrailerUtil {
 	}
 
 	public static void validateSecurityTrailer(SecurityTrailer securityTrailer, String KEK,
-			MessageCategory messageCategory, MessageType messageType, String messageStr) throws InvalidKeyException,
-			NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException,
-			IllegalBlockSizeException, IOException, InvalidKeySpecException, SecurityTrailerValidationException {
+			MessageCategory messageCategory, MessageType messageType, String messageStr)
+			throws SecurityTrailerValidationException, InvalidKeyException, NoSuchAlgorithmException,
+			NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException,
+			JsonDataException, IOException, InvalidKeySpecException {
 
 		if (securityTrailer == null || securityTrailer.getAuthenticatedData() == null
 				|| securityTrailer.getAuthenticatedData().getRecipient() == null
@@ -86,18 +87,21 @@ public class SecurityTrailerUtil {
 				.hexStringToByteArray(securityTrailer.getAuthenticatedData().getRecipient().getKek().getEncryptedKey());
 		byte[] key = Crypto.crypt(Cipher.DECRYPT_MODE, encryptedKey, KEK);
 
-		// Extract message header and body from message string
-		Map<String, Object> map = createMapFromMessageString(messageStr, messageType);
-		String messageHeader = mapToJson(String.class, Object.class,
-				Collections.singletonMap("MessageHeader", map.get("MessageHeader")));
-		String messageBody = mapToJson(String.class, Object.class,
-				Collections.singletonMap(String.format("%s%s", messageCategory, messageType),
-						map.get(String.format("%s%s", messageCategory, messageType))));
+		SaleToPOIString stps = null;
+		if (messageType == MessageType.Request) {
+			stps = SaleToPOIString.fromJson(
+					messageStr.substring("\"SaleToPOIRequest\": ".length(), messageStr.length() - 1), messageCategory,
+					messageType);
+		} else if (messageType == MessageType.Response) {
+			stps = SaleToPOIString.fromJson(
+					messageStr.substring("\"SaleToPOIResponse\": ".length(), messageStr.length() - 1), messageCategory,
+					messageType);
+		}
 
 		// Generate MAC based on key and request/response body in the payload
 		String hexKey = Crypto.byteArrayToHexString(key);
-		String MAC = Crypto.generateMAC(String.format("%s,%s", messageHeader.substring(1, messageHeader.length() - 1),
-				messageBody.substring(1, messageBody.length() - 1)), hexKey).toUpperCase();
+		String MAC = Crypto.generateMAC(String.format("\"MessageHeader\":%s,\"%s%s\":%s", stps.getMessageHeader(),
+				messageCategory, messageType, stps.getBody()), hexKey).toUpperCase();
 
 		// Encrypt key
 		byte[] newEncryptedKey = Crypto.generateEncryptedKey(key, KEK);
@@ -124,28 +128,6 @@ public class SecurityTrailerUtil {
 				messageHeader.getMessageCategory(), request.toJson());
 
 		return macBody;
-	}
-
-	private static Map<String, Object> createMapFromMessageString(String messageStr, MessageType messageType)
-			throws IOException {
-		Map<String, Object> map = null;
-
-		Moshi moshi = new Moshi.Builder().build();
-		Type type = Types.newParameterizedType(Map.class, String.class, Object.class);
-		JsonAdapter<Map<String, Object>> adapter = moshi.adapter(type);
-
-		if (messageType == MessageType.Request) {
-			map = adapter.fromJson(messageStr.substring("\"SaleToPOIRequest\": ".length(), messageStr.length() - 1));
-		} else if (messageType == MessageType.Response) {
-			map = adapter.fromJson(messageStr.substring("\"SaleToPOIResponse\": ".length(), messageStr.length() - 1));
-		}
-
-		return map;
-	}
-
-	private static <K, V> String mapToJson(Class<K> key, Class<V> value, Object json) {
-		Moshi moshi = new Moshi.Builder().build();
-		return moshi.adapter(Types.newParameterizedType(Map.class, key, value)).toJson(json);
 	}
 
 }

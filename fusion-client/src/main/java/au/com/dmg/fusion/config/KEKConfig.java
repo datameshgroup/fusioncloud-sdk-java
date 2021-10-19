@@ -1,24 +1,17 @@
 package au.com.dmg.fusion.config;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import javax.naming.ConfigurationException;
+
+import au.com.dmg.fusion.util.Util;
 
 public class KEKConfig {
 
 	private static KEKConfig instance = null;
-	private static final String CONFIG_LOCATION = System.getProperty("config.location");
 
-	public KEKConfig() throws IOException {
-		Properties prop = new Properties();
-
-		InputStream input = new FileInputStream(CONFIG_LOCATION);
-		prop.load(input);
-
-		this.value = prop.getProperty("key.value");
-		this.keyIdentifier = prop.getProperty("key.identifier");
-		this.keyVersion = prop.getProperty("key.version");
+	public KEKConfig(String value, String keyIdentifier, String keyVersion) {
+		this.value = value;
+		this.keyIdentifier = keyIdentifier;
+		this.keyVersion = keyVersion;
 	}
 
 	private String value;
@@ -37,12 +30,30 @@ public class KEKConfig {
 		return keyVersion;
 	}
 
-	public static KEKConfig getInstance() throws IOException {
+	public static KEKConfig getInstance() throws ConfigurationException {
 		if (instance == null) {
-			instance = new KEKConfig();
+			throw new ConfigurationException("KEK configuration values have not been initialized.");
 		}
 
 		return instance;
+	}
+
+	public static void init(String value, String keyIdentifier, String keyVersion) throws ConfigurationException {
+		if (instance != null) {
+			throw new ConfigurationException("KEK configuration already exists");
+		}
+
+		if (Util.isStringNullEmptyBlank(value) || Util.isStringNullEmptyBlank(keyIdentifier)
+				|| Util.isStringNullEmptyBlank(keyVersion)) {
+			throw new ConfigurationException(
+					"KEK value, key identifier and key version values are required to initialize the KEK config.");
+		}
+
+		instance = new KEKConfig(value, keyIdentifier, keyVersion);
+	}
+
+	public static boolean isInitialised() {
+		return instance != null;
 	}
 
 }

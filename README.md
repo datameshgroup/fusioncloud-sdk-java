@@ -11,22 +11,23 @@ This repository contains a websocket client and security components to make it e
 ***
 
 ##### Configuration
-The code requires some configurations to be present for it to work properly:
+The following configuration classes must be initialized with the appropriate values during start up (otherwise a `ConfigurationException` will be thrown when an instance of any of these classes is called):
 
-`provider.identification={provider ID}`  
-`application.name={application name}`  
-`software.version={software version}`  
-`certification.code={certification code}`  
+`FusionClientConfig`
+ - certificateLocation (root CA location e.g., 'src/main/resources/root.crt')
+ - serverDomain (domain/server URI)
+ - socketProtocol (defaults to 'TLSv1.2' if not provided)
 
-`certificate.location={root CA location}`  
-`server.domain={domain/server URI}`  
-`socket.protocol={protocol version}`
+`KEKConfig`
+ - value (KEK provided by DataMesh)
+ - keyIdentifier (SpecV2TestMACKey or SpecV2ProdMACKey)
+ - keyVersion (version)
 
-`key.value={KEK provided by DMG}`  
-`key.identifier={SpecV2TestMACKey or SpecV2ProdMACKey}`  
-`key.version={version}`  
-
-These must be written in a *properties* file and added as argument with key `config.location` at startup (e.g., `-Dconfig.location=src/main/resources/config.properties`)
+`SaleSystemConfig` (static sale system settings - provided by DataMesh)
+ - providerIdentification
+ - applicationName
+ - softwareVersion
+ - certificationCode
 
 ### Dependencies
 

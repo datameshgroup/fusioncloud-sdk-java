@@ -1,24 +1,17 @@
 package au.com.dmg.fusion.config;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import javax.naming.ConfigurationException;
+
+import au.com.dmg.fusion.util.Util;
 
 public class FusionClientConfig {
 
 	private static FusionClientConfig instance = null;
-	private static final String CONFIG_LOCATION = System.getProperty("config.location");
 
-	private FusionClientConfig() throws IOException {
-		Properties prop = new Properties();
-
-		InputStream input = new FileInputStream(CONFIG_LOCATION);
-		prop.load(input);
-
-		this.certificateLocation = prop.getProperty("certificate.location");
-		this.serverDomain = prop.getProperty("server.domain");
-		this.socketProtocol = prop.getProperty("socket.protocol");
+	private FusionClientConfig(String certificateLocation, String serverDomain, String socketProtocol) {
+		this.certificateLocation = certificateLocation;
+		this.serverDomain = serverDomain;
+		this.socketProtocol = socketProtocol;
 	}
 
 	private String certificateLocation;
@@ -37,12 +30,34 @@ public class FusionClientConfig {
 		return socketProtocol;
 	}
 
-	public static FusionClientConfig getInstance() throws IOException {
+	public static FusionClientConfig getInstance() throws ConfigurationException {
 		if (instance == null) {
-			instance = new FusionClientConfig();
+			throw new ConfigurationException("Fusion client config values have not been initialized.");
 		}
 
 		return instance;
+	}
+
+	public static void init(String certificateLocation, String serverDomain, String socketProtocol)
+			throws ConfigurationException {
+		if (instance != null) {
+			throw new ConfigurationException("Fusion client config already exists");
+		}
+
+		if (Util.isStringNullEmptyBlank(certificateLocation) || Util.isStringNullEmptyBlank(serverDomain)) {
+			throw new ConfigurationException(
+					"Certificate location, server domain and socket protocol values are required to initialize the Fusion Client config.");
+		}
+
+		if (Util.isStringNullEmptyBlank(socketProtocol)) {
+			socketProtocol = "TLSv1.2"; // default value
+		}
+
+		instance = new FusionClientConfig(certificateLocation, serverDomain, socketProtocol);
+	}
+
+	public static boolean isInitialised() {
+		return instance != null;
 	}
 
 }
