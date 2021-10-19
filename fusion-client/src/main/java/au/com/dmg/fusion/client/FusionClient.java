@@ -16,6 +16,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.naming.ConfigurationException;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
@@ -78,9 +79,10 @@ public class FusionClient {
 	 * @throws NoSuchAlgorithmException
 	 * @throws CertificateException
 	 * @throws KeyStoreException
+	 * @throws ConfigurationException
 	 */
 	public void connect(URI endpointURI) throws DeploymentException, IOException, KeyManagementException,
-			NoSuchAlgorithmException, CertificateException, KeyStoreException {
+			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
 		connect(endpointURI, 0, 0);
 	}
 
@@ -97,9 +99,11 @@ public class FusionClient {
 	 * @throws NoSuchAlgorithmException
 	 * @throws CertificateException
 	 * @throws KeyStoreException
+	 * @throws ConfigurationException
 	 */
-	public void connect(URI endpointURI, long sendTimeout, long maxSessionIdleTimeout) throws CertificateException,
-			KeyStoreException, NoSuchAlgorithmException, IOException, KeyManagementException, DeploymentException {
+	public void connect(URI endpointURI, long sendTimeout, long maxSessionIdleTimeout)
+			throws CertificateException, KeyStoreException, NoSuchAlgorithmException, IOException,
+			KeyManagementException, DeploymentException, ConfigurationException {
 		LOGGER.info("Connecting to websocket server...");
 
 		ClientManager cm = ClientManager.createClient();
@@ -272,15 +276,15 @@ public class FusionClient {
 	}
 
 	private void setProtocolVersion(TrustManager[] trustManagers)
-			throws NoSuchAlgorithmException, KeyManagementException, IOException {
+			throws NoSuchAlgorithmException, KeyManagementException, IOException, ConfigurationException {
 
 		SSLContext context = SSLContext.getInstance(FusionClientConfig.getInstance().getSocketProtocol());
 		context.init(null, trustManagers, null);
 		SSLContext.setDefault(context);
 	}
 
-	private TrustManager[] addCertificate()
-			throws CertificateException, KeyStoreException, NoSuchAlgorithmException, IOException {
+	private TrustManager[] addCertificate() throws CertificateException, KeyStoreException, NoSuchAlgorithmException,
+			IOException, ConfigurationException {
 
 		FileInputStream fis = new FileInputStream(FusionClientConfig.getInstance().getCertificateLocation());
 		X509Certificate ca = (X509Certificate) CertificateFactory.getInstance("X.509")

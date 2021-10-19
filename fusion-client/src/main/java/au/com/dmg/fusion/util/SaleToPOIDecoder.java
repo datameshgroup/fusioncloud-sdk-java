@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.naming.ConfigurationException;
 import javax.websocket.DecodeException;
 import javax.websocket.Decoder;
 import javax.websocket.EndpointConfig;
@@ -60,9 +61,9 @@ public class SaleToPOIDecoder implements Decoder.Text<SaleToPOI> {
 					KEKConfig.getInstance().getValue(), messageHeader.getMessageCategory(),
 					messageHeader.getMessageType(), s);
 
-		} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
+		} catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 				| InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
-				| InvalidKeySpecException | IOException e) {
+				| InvalidKeySpecException | ConfigurationException e) {
 
 			LOGGER.log(Level.SEVERE, e.getMessage());
 			throw new SecurityTrailerValidationException(s, e.getMessage());

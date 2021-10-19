@@ -1,25 +1,19 @@
 package au.com.dmg.fusion.config;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import javax.naming.ConfigurationException;
+
+import au.com.dmg.fusion.util.Util;
 
 public class SaleSystemConfig {
 
 	private static SaleSystemConfig instance = null;
-	private static final String CONFIG_LOCATION = System.getProperty("config.location");
 
-	private SaleSystemConfig() throws IOException {
-		Properties prop = new Properties();
-
-		InputStream input = new FileInputStream(CONFIG_LOCATION);
-		prop.load(input);
-
-		this.providerIdentification = prop.getProperty("provider.identification");
-		this.applicationName = prop.getProperty("application.name");
-		this.softwareVersion = prop.getProperty("software.version");
-		this.certificationCode = prop.getProperty("certification.code");
+	private SaleSystemConfig(String providerIdentification, String applicationName, String softwareVersion,
+			String certificationCode) {
+		this.providerIdentification = providerIdentification;
+		this.applicationName = applicationName;
+		this.softwareVersion = softwareVersion;
+		this.certificationCode = certificationCode;
 	}
 
 	private String providerIdentification;
@@ -43,12 +37,31 @@ public class SaleSystemConfig {
 		return certificationCode;
 	}
 
-	public static SaleSystemConfig getInstance() throws IOException {
-		if (SaleSystemConfig.instance == null) {
-			SaleSystemConfig.instance = new SaleSystemConfig();
+	public static SaleSystemConfig getInstance() throws ConfigurationException {
+		if (instance == null) {
+			throw new ConfigurationException("Sale system config values have not been initialized.");
 		}
 
 		return SaleSystemConfig.instance;
+	}
+
+	public static void init(String providerIdentification, String applicationName, String softwareVersion,
+			String certificationCode) throws ConfigurationException {
+		if (instance != null) {
+			throw new ConfigurationException("Sale system config already exists");
+		}
+
+		if (Util.isStringNullEmptyBlank(providerIdentification) || Util.isStringNullEmptyBlank(applicationName)
+				|| Util.isStringNullEmptyBlank(softwareVersion) || Util.isStringNullEmptyBlank(certificationCode)) {
+			throw new ConfigurationException(
+					"Certificate location, server domain and socket protocol values are required to initialize the Fusion Client config.");
+		}
+
+		instance = new SaleSystemConfig(providerIdentification, applicationName, softwareVersion, certificationCode);
+	}
+
+	public static boolean isInitialised() {
+		return instance != null;
 	}
 
 }
