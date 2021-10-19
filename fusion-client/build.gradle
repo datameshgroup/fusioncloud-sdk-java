@@ -16,7 +16,7 @@ java {
     withSourcesJar()
 }
 
-compileJava{
+compileJava {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
 }
@@ -26,6 +26,69 @@ dependencies {
     implementation 'org.glassfish.tyrus.bundles:tyrus-standalone-client:1.9'
     implementation 'com.squareup.moshi:moshi:1.12.0'
     implementation 'com.datameshgroup.fusion:fusion-sdk:1.0.2'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'fusion-cloud'
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = 'Fusion Cloud Client'
+                description = 'WSS Client for interacting with Datameshgroup\'s Fusion Cloud interface.'
+                url = 'https://github.com/datameshgroup/fusioncloud-sdk-java'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'http://www.opensource.org/licenses/mit-license.php'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'datameshgroup'
+                        name = 'Datamesh Group'
+                        email = 'admin@datameshgroup.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git@github.com:datameshgroup/fusioncloud-sdk-java.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:datameshgroup/fusioncloud-sdk-java.git'
+                    url = 'https://github.com/datameshgroup/fusioncloud-sdk-java'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = 'Sonatype'
+            url "https://s01.oss.sonatype.org/content/repositories/releases/"
+            credentials {
+                username = findProperty('sonatype.username')
+                password = findProperty('sonatype.password')
+            }
+        }
+    }
+}
+
+signing {
+    if (project.hasProperty('signing.keyId') && project.hasProperty('signing.password') && project.hasProperty('signing.secretKeyRingFile')) {
+        sign configurations.archives
+
+        /* Uncomment this if you use shadow in your build process */
+        // sign configurations.shadow
+        sign publishing.publications.mavenJava
+    }
+}
+
+javadoc {
 }
 
 test {
