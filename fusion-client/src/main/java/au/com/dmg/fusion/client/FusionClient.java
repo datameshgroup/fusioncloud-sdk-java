@@ -72,7 +72,7 @@ public class FusionClient {
 	/**
 	 * Constructs a ClientManager and automatically connects to the specified URI.
 	 *
-	 * @param serverUri the server URI to connect to
+	 * @param endpointURI the server URI to connect to
 	 * @throws DeploymentException
 	 * @throws IOException
 	 * @throws KeyManagementException
@@ -89,7 +89,7 @@ public class FusionClient {
 	/**
 	 * Constructs a ClientManager and automatically connects to the specified URI.
 	 *
-	 * @param serverUri             the server URI to connect to
+	 * @param endpointURI             the server URI to connect to
 	 * @param sendTimeout           the send message timeout in milliseconds
 	 * @param maxSessionIdleTimeout the amount of time in milliseconds a web socket
 	 *                              session will be closed if it has been inactive
