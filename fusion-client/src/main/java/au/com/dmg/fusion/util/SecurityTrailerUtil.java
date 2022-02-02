@@ -92,7 +92,7 @@ public class SecurityTrailerUtil {
 			stps = SaleToPOIString.fromJson(
 					messageStr.substring("\"SaleToPOIRequest\": ".length(), messageStr.length() - 1), messageCategory,
 					messageType);
-		} else if (messageType == MessageType.Response) {
+		} else if ((messageType == MessageType.Response) || (messageType == MessageType.Notification)) {
 			stps = SaleToPOIString.fromJson(
 					messageStr.substring("\"SaleToPOIResponse\": ".length(), messageStr.length() - 1), messageCategory,
 					messageType);
