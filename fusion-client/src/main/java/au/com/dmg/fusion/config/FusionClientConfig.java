@@ -8,20 +8,17 @@ public class FusionClientConfig {
 
 	private static FusionClientConfig instance = null;
 
-	private FusionClientConfig(String certificateLocation, String serverDomain, String socketProtocol) {
-		this.certificateLocation = certificateLocation;
+	private FusionClientConfig(String serverDomain, String socketProtocol, String env) {
 		this.serverDomain = serverDomain;
 		this.socketProtocol = socketProtocol;
+		this.env = env;
 	}
 
-	private String certificateLocation;
 	private String serverDomain;
 	private String socketProtocol;
+	private String env;
 
-	public String getCertificateLocation() {
-		return certificateLocation;
-	}
-
+	
 	public String getServerDomain() {
 		return serverDomain;
 	}
@@ -29,6 +26,8 @@ public class FusionClientConfig {
 	public String getSocketProtocol() {
 		return socketProtocol;
 	}
+
+	public String getEnv(){return env;}
 
 	public static FusionClientConfig getInstance() throws ConfigurationException {
 		if (instance == null) {
@@ -38,22 +37,26 @@ public class FusionClientConfig {
 		return instance;
 	}
 
-	public static void init(String certificateLocation, String serverDomain, String socketProtocol)
+	public static void init(String serverDomain, String socketProtocol, String env)
 			throws ConfigurationException {
 		if (instance != null) {
 			throw new ConfigurationException("Fusion client config already exists");
 		}
 
-		if (Util.isStringNullEmptyBlank(certificateLocation) || Util.isStringNullEmptyBlank(serverDomain)) {
+		if (Util.isStringNullEmptyBlank(serverDomain)) {
 			throw new ConfigurationException(
-					"Certificate location, server domain and socket protocol values are required to initialize the Fusion Client config.");
+					"Server domain and socket protocol values are required to initialize the Fusion Client config.");
 		}
 
 		if (Util.isStringNullEmptyBlank(socketProtocol)) {
 			socketProtocol = "TLSv1.2"; // default value
 		}
 
-		instance = new FusionClientConfig(certificateLocation, serverDomain, socketProtocol);
+		if (Util.isStringNullEmptyBlank(env)) {
+			env = "DEV"; // default value
+		}
+
+		instance = new FusionClientConfig(serverDomain, socketProtocol, env);
 	}
 
 	public static boolean isInitialised() {

@@ -1,9 +1,10 @@
 package au.com.dmg.fusion.client;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -11,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
@@ -29,6 +31,7 @@ import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
 
+import au.com.dmg.fusion.util.Cert;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
@@ -59,6 +62,8 @@ public class FusionClient {
 	private ErrorHandler errorHandler;
 
 	private URI uri;
+
+	private String env;
 
 	public final BlockingQueue<SaleToPOIResponse> inQueueResponse;
 
@@ -285,8 +290,9 @@ public class FusionClient {
 
 	private TrustManager[] addCertificate() throws CertificateException, KeyStoreException, NoSuchAlgorithmException,
 			IOException, ConfigurationException {
+		String cert = Cert.getCertificate(FusionClientConfig.getInstance().getEnv());
+		InputStream fis = new ByteArrayInputStream(cert.getBytes(StandardCharsets.UTF_8));
 
-		FileInputStream fis = new FileInputStream(FusionClientConfig.getInstance().getCertificateLocation());
 		X509Certificate ca = (X509Certificate) CertificateFactory.getInstance("X.509")
 				.generateCertificate(new BufferedInputStream(fis));
 
