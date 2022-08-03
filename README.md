@@ -14,7 +14,7 @@ This repository contains a websocket client and security components to make it e
 The following configuration classes must be initialized with the appropriate values during start up (otherwise a `ConfigurationException` will be thrown when an instance of any of these classes is called):
 
 `FusionClientConfig`
- - certificateLocation (root CA location e.g., 'src/main/resources/root.crt')
+ <strike>- certificateLocation (root CA location e.g., 'src/main/resources/root.crt')</strike>
  - serverDomain (domain/server URI)
  - socketProtocol (defaults to 'TLSv1.2' if not provided)
 
