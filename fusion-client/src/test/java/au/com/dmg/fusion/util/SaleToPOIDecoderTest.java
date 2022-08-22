@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import javax.naming.ConfigurationException;
 import javax.websocket.DecodeException;
@@ -33,10 +35,9 @@ public class SaleToPOIDecoderTest {
 
 	@Test
 	public void testDecodeRequest() throws DecodeException, UnsupportedEncodingException, IOException {
-		ClassLoader classLoader = getClass().getClassLoader();
-		File file = new File(classLoader.getResource("SaleToPOIRequest.json").getFile());
+		Path path = Paths.get("build\\resources\\test\\SaleToPOIRequest.json");
 
-		String saleToPOIRequestString = new String(Files.readAllBytes(file.toPath()), "UTF-8");
+		String saleToPOIRequestString = new String(Files.readAllBytes(path.toAbsolutePath()), "UTF-8");
 		assertTrue(saleToPOIRequestString.startsWith("{\"SaleToPOIRequest\":"));
 
 		SaleToPOIRequest saleToPOIRequest = (SaleToPOIRequest) decoder.decode(saleToPOIRequestString);
@@ -47,10 +48,9 @@ public class SaleToPOIDecoderTest {
 
 	@Test
 	public void testDecodeResponse() throws DecodeException, UnsupportedEncodingException, IOException {
-		ClassLoader classLoader = getClass().getClassLoader();
-		File file = new File(classLoader.getResource("SaleToPOIResponse.json").getFile());
+		Path path = Paths.get("build\\resources\\test\\SaleToPOIResponse.json");
 
-		String saleToPOIResponseString = new String(Files.readAllBytes(file.toPath()), "UTF-8");
+		String saleToPOIResponseString = new String(Files.readAllBytes(path.toAbsolutePath()), "UTF-8");
 		assertTrue(saleToPOIResponseString.startsWith("{\"SaleToPOIResponse\":"));
 
 		SaleToPOIResponse saleToPOIResponse = (SaleToPOIResponse) decoder.decode(saleToPOIResponseString);
