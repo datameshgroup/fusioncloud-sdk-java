@@ -1,5 +1,9 @@
 # fusioncloud-sdk-java
 
+## How to include
+
+    implementation "com.datameshgroup.fusion:fusion-cloud:1.0.3"
+
 ### Overview
 
 ***
