@@ -6,6 +6,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -23,10 +26,8 @@ public class SaleToPOIStringTest {
 
 	@Before
 	public void init() throws UnsupportedEncodingException, IOException {
-		ClassLoader classLoader = getClass().getClassLoader();
-		File file = new File(classLoader.getResource("SaleToPOIPaymentResponse.json").getFile());
-
-		this.message = new String(Files.readAllBytes(file.toPath()), "UTF-8");
+		Path path = Paths.get("build\\resources\\test\\SaleToPOIPaymentResponse.json");
+		this.message = new String(Files.readAllBytes(path.toAbsolutePath()), "UTF-8");
 	}
 
 	@Test
