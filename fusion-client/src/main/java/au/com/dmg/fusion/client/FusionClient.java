@@ -2,6 +2,7 @@ package au.com.dmg.fusion.client;
 
 import java.io.*;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -38,6 +39,7 @@ import org.glassfish.tyrus.client.ClientProperties;
 
 import au.com.dmg.fusion.SaleToPOI;
 import au.com.dmg.fusion.config.FusionClientConfig;
+import au.com.dmg.fusion.config.*;
 import au.com.dmg.fusion.exception.NotConnectedException;
 import au.com.dmg.fusion.request.SaleToPOIRequest;
 import au.com.dmg.fusion.response.SaleToPOIResponse;
@@ -45,16 +47,13 @@ import au.com.dmg.fusion.util.SaleToPOIDecoder;
 import au.com.dmg.fusion.util.SaleToPOIRequestEncoder;
 import au.com.dmg.fusion.util.SaleToPOIResponseEncoder;
 
-/**
- * Provides the necessary methods to establish connection and communicate with a
- * websocket server
- */
 @ClientEndpoint(encoders = { SaleToPOIRequestEncoder.class, SaleToPOIResponseEncoder.class }, decoders = {
 		SaleToPOIDecoder.class })
 public class FusionClient {
 
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
+	public FusionClientConfig fusionClientConfig;
 	Session userSession = null;
 
 	private MessageHandler messageHandler;
@@ -69,43 +68,31 @@ public class FusionClient {
 
 	public final BlockingQueue<SaleToPOIRequest> inQueueRequest;
 
+	public void init(FusionClientConfig fusionClientConfig) throws URISyntaxException, DeploymentException, IOException, KeyManagementException,
+			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
+		this.fusionClientConfig = fusionClientConfig;
+
+		fusionClientConfig.init();
+		KEKConfig.init(fusionClientConfig.kekValue, fusionClientConfig.keyIdentifier, fusionClientConfig.keyVersion);
+		SaleSystemConfig.init(fusionClientConfig.providerIdentification, fusionClientConfig.applicationName, fusionClientConfig.softwareVersion, fusionClientConfig.certificationCode);
+
+		connect(fusionClientConfig.getServerDomain());
+//
+//
+//		createDefaultHeader()
+//		createDefaultSecurityTrailer()
+
+	}
 	public FusionClient() {
 		inQueueResponse = new LinkedBlockingQueue<>();
 		inQueueRequest = new LinkedBlockingQueue<>();
 	}
 
-	/**
-	 * Constructs a ClientManager and automatically connects to the specified URI.
-	 *
-	 * @param endpointURI the server URI to connect to
-	 * @throws DeploymentException
-	 * @throws IOException
-	 * @throws KeyManagementException
-	 * @throws NoSuchAlgorithmException
-	 * @throws CertificateException
-	 * @throws KeyStoreException
-	 * @throws ConfigurationException
-	 */
 	public void connect(URI endpointURI) throws DeploymentException, IOException, KeyManagementException,
 			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
 		connect(endpointURI, 0, 0);
 	}
 
-	/**
-	 * Constructs a ClientManager and automatically connects to the specified URI.
-	 *
-	 * @param endpointURI             the server URI to connect to
-	 * @param sendTimeout           the send message timeout in milliseconds
-	 * @param maxSessionIdleTimeout the amount of time in milliseconds a web socket
-	 *                              session will be closed if it has been inactive
-	 * @throws DeploymentException
-	 * @throws IOException
-	 * @throws KeyManagementException
-	 * @throws NoSuchAlgorithmException
-	 * @throws CertificateException
-	 * @throws KeyStoreException
-	 * @throws ConfigurationException
-	 */
 	public void connect(URI endpointURI, long sendTimeout, long maxSessionIdleTimeout)
 			throws CertificateException, KeyStoreException, NoSuchAlgorithmException, IOException,
 			KeyManagementException, DeploymentException, ConfigurationException {
@@ -125,21 +112,11 @@ public class FusionClient {
 		cm.connectToServer(this, endpointURI);
 	}
 
-	/**
-	 * Closes the websocket connection.
-	 *
-	 * @throws IOException
-	 */
 	public void disconnect() throws IOException {
 		LOGGER.info("Disconnecting from websocket server...");
 		this.userSession.close();
 	}
 
-	/**
-	 * Callback after an opening handshake has been performed.
-	 *
-	 * @param userSession the current session
-	 */
 	@OnOpen
 	public void onOpen(Session userSession) {
 		LOGGER.info("Connection to websocket server is open");
@@ -148,6 +125,7 @@ public class FusionClient {
 		setMessageHandler(new FusionClient.MessageHandler() {
 			@Override
 			public void handleMessage(SaleToPOI message) {
+				LOGGER.info("RX:" + message);
 				try {
 					if (message instanceof SaleToPOIRequest) {
 						inQueueRequest.put((SaleToPOIRequest) message);
@@ -167,12 +145,6 @@ public class FusionClient {
 		});
 	}
 
-	/**
-	 * Callback after the websocket connection has been closed.
-	 *
-	 * @param userSession the session that is getting closed
-	 * @param reason      the reason for closing the connection
-	 */
 	@OnClose
 	public void onClose(Session userSession, CloseReason reason) {
 		LOGGER.info("Connection to websocket server is closed");
@@ -180,12 +152,6 @@ public class FusionClient {
 		this.userSession = null;
 	}
 
-	/**
-	 * Callback for Message Events. This method will be invoked when a message is
-	 * received.
-	 *
-	 * @param message The SaleToPOI message
-	 */
 	@OnMessage
 	public void onMessage(SaleToPOI message) {
 		LOGGER.info("Received message from websocket server");
@@ -204,11 +170,6 @@ public class FusionClient {
 		}
 	}
 
-	/**
-	 * Sends <var>message</var> to the connected websocket server.
-	 *
-	 * @param message The string that will be sent to the server.
-	 */
 	public void sendMessage(String message) throws NotConnectedException {
 		LOGGER.info("Sending message to websocket server");
 
@@ -218,25 +179,16 @@ public class FusionClient {
 		this.userSession.getAsyncRemote().sendText(message);
 	}
 
-	/**
-	 * Sends <var>message</var> to the connected websocket server.
-	 *
-	 * @param message The SaleToPOIRequest that will be sent to the server.
-	 */
 	public void sendMessage(SaleToPOIRequest message) throws NotConnectedException {
 		LOGGER.info("Sending message to websocket server");
 
 		if (!isConnected()) {
 			throw new NotConnectedException("Connection is closed!");
 		}
+		LOGGER.info("TX:" + message);
 		this.userSession.getAsyncRemote().sendObject(message);
 	}
 
-	/**
-	 * Sends <var>message</var> to the connected websocket server.
-	 *
-	 * @param message The SaleToPOIResponse that will be sent to the server.
-	 */
 	public void sendMessage(SaleToPOIResponse message) throws NotConnectedException {
 		LOGGER.info("Sending message to websocket server");
 
@@ -247,11 +199,6 @@ public class FusionClient {
 
 	}
 
-	/**
-	 * Sets message handler
-	 *
-	 * @param msgHandler
-	 */
 	public void setMessageHandler(MessageHandler msgHandler) {
 		this.messageHandler = msgHandler;
 	}
@@ -260,11 +207,6 @@ public class FusionClient {
 		public void handleMessage(SaleToPOI message);
 	}
 
-	/**
-	 * Sets error handler
-	 *
-	 * @param errHandler
-	 */
 	public void setErrorHandler(ErrorHandler errHandler) {
 		this.errorHandler = errHandler;
 	}
@@ -273,9 +215,6 @@ public class FusionClient {
 		public void handleError(Session session, Throwable t) throws Exception;
 	}
 
-	/**
-	 * Checks whether a <var>userSession</var> exists and if it is open.
-	 */
 	public boolean isConnected() {
 		return userSession != null && userSession.isOpen();
 	}
@@ -306,9 +245,6 @@ public class FusionClient {
 		return tmf.getTrustManagers();
 	}
 
-	/**
-	 * Returns the <var>URI</var>.
-	 */
 	public URI getURI() {
 		return uri;
 	}
