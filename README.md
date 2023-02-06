@@ -31,7 +31,7 @@ fusionClientConfig = new FusionClientConfig(isTestEnvironment: true | false);
     fusionClientConfig.certificationCode = <<Provided by DataMesh>>";
     fusionClientConfig.kekValue = "<<Provided by DataMesh>>";
 ```
-Construct an instance of `FusionClient` using `FusionCloudConfig` to connect tot the web socket
+Construct an instance of `FusionClient` using `FusionCloudConfig` as a parameter to connect tot the web socket
 
 ```
 FusionClient fusionClient = new FusionClient();
