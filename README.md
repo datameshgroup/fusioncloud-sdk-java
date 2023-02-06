@@ -14,24 +14,29 @@ This repository contains a websocket client and security components to make it e
 
 ***
 
-##### Configuration
-The following configuration classes must be initialized with the appropriate values during start up (otherwise a `ConfigurationException` will be thrown when an instance of any of these classes is called):
+##### Usage
+See the [DataMesh Fusion API](https://datameshgroup.github.io/fusion) documentation for a full description of schema and workflows.
+The [fusioncloud-sdk-java-demo](https://github.com/datameshgroup/fusioncloud-sdk-java-demo) application provides sample code for using this library.
 
-`FusionClientConfig`
- <strike>- certificateLocation (root CA location e.g., 'src/main/resources/root.crt')</strike>
- - serverDomain (domain/server URI)
- - socketProtocol (defaults to 'TLSv1.2' if not provided)
+Construct an instance of `FusionCloudConfig` using the configuration provided by DataMesh. See the [Fusion API](https://datameshgroup.github.io/fusion/#getting-started-design-your-integration-sale-system-settings) for instructions on how to manage settings.
 
-`KEKConfig`
- - value (KEK provided by DataMesh)
- - keyIdentifier (SpecV2TestMACKey or SpecV2ProdMACKey)
- - keyVersion (version)
+```
+FusionClientConfig fusionClientConfig;
+fusionClientConfig = new FusionClientConfig(isTestEnvironment: true | false);
+    fusionClientConfig.saleID = "<<Provided by DataMesh>>";
+    fusionClientConfig.poiID = "<<Provided by DataMesh>>";
+    fusionClientConfig.providerIdentification = "<<Provided by DataMesh>>";
+    fusionClientConfig.applicationName = "<<Provided by DataMesh>>";
+    fusionClientConfig.softwareVersion = "<<Your POS version>>";
+    fusionClientConfig.certificationCode = <<Provided by DataMesh>>";
+    fusionClientConfig.kekValue = "<<Provided by DataMesh>>";
+```
+Construct an instance of `FusionClient` using `FusionCloudConfig` to connect tot the web socket
 
-`SaleSystemConfig` (static sale system settings - provided by DataMesh)
- - providerIdentification
- - applicationName
- - softwareVersion
- - certificationCode
+```
+FusionClient fusionClient = new FusionClient();
+fusionClient.init(fusionClientConfig);
+```
 
 ### Dependencies
 
@@ -51,33 +56,6 @@ This project uses the following dependencies:
 
 > **Note:** Other versions may work as well, but have not been tested.
 
-### Usage
-
-***
-
-The `com.dmg.fusion.client.WebSocketClient.connect(URI)` method expects a valid wss URI to connect to. Unify utilises a self-signed root CA provided by DataMesh. The certificate must be added to the project directory and its location must be specified in the *properties* file (see [Getting Started](#getting-started)) with key `certificate.location`.
-
-**Connecting to websocket server:**  
-
-```java
-webSocketClient.connect(new URI(wss://www.cloudposintegration.io/nexodev));
-```
-
-**Generate security trailer:**  
-
-```java
-securityTrailer = SecurityTrailerUtil.generateSecurityTrailer(messageHeader, loginRequest, KEK);
-```
-
-**Build a SaleToPOIRequest:**  
-
-```java
-SaleToPOIRequest saleToPOI = new SaleToPOIRequest.Builder()
-    .messageHeader(messageHeader)
-    .request(loginRequest)
-    .securityTrailer(securityTrailer)
-    .build();
-```
 
 Message requests and responses from the websocket server are added to `BlockingQueue<SaleToPOIRequest> inQueueRequest` and `BlockingQueue<SaleToPOIResponse> inQueueResponse`, respectively.
 
