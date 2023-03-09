@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -13,12 +14,16 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.naming.ConfigurationException;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -37,15 +42,21 @@ import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
 
+import au.com.dmg.fusion.MessageHeader;
 import au.com.dmg.fusion.SaleToPOI;
-import au.com.dmg.fusion.config.FusionClientConfig;
+import au.com.dmg.fusion.data.MessageCategory;
+import au.com.dmg.fusion.data.MessageClass;
+import au.com.dmg.fusion.data.MessageType;
 import au.com.dmg.fusion.config.*;
 import au.com.dmg.fusion.exception.NotConnectedException;
+import au.com.dmg.fusion.request.Request;
 import au.com.dmg.fusion.request.SaleToPOIRequest;
 import au.com.dmg.fusion.response.SaleToPOIResponse;
+import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
 import au.com.dmg.fusion.util.SaleToPOIDecoder;
 import au.com.dmg.fusion.util.SaleToPOIRequestEncoder;
 import au.com.dmg.fusion.util.SaleToPOIResponseEncoder;
+import au.com.dmg.fusion.util.SecurityTrailerUtil;
 
 @ClientEndpoint(encoders = { SaleToPOIRequestEncoder.class, SaleToPOIResponseEncoder.class }, decoders = {
 		SaleToPOIDecoder.class })
@@ -55,18 +66,16 @@ public class FusionClient {
 
 	public FusionClientConfig fusionClientConfig;
 	Session userSession = null;
-
 	private MessageHandler messageHandler;
-
 	private ErrorHandler errorHandler;
-
 	private URI uri;
-
 	private String env;
-
+	
 	public final BlockingQueue<SaleToPOIResponse> inQueueResponse;
-
 	public final BlockingQueue<SaleToPOIRequest> inQueueRequest;
+
+	private MessageHeader messageHeader;
+	private SecurityTrailer securityTrailer;
 
 	public void init(FusionClientConfig fusionClientConfig) throws URISyntaxException, DeploymentException, IOException, KeyManagementException,
 			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
@@ -77,12 +86,11 @@ public class FusionClient {
 		SaleSystemConfig.init(fusionClientConfig.providerIdentification, fusionClientConfig.applicationName, fusionClientConfig.softwareVersion, fusionClientConfig.certificationCode);
 
 		connect(fusionClientConfig.getServerDomain());
-//
-//
-//		createDefaultHeader()
-//		createDefaultSecurityTrailer()
 
+		// createDefaultHeader();
+		// createDefaultSecurityTrailer();
 	}
+
 	public FusionClient() {
 		inQueueResponse = new LinkedBlockingQueue<>();
 		inQueueRequest = new LinkedBlockingQueue<>();
@@ -170,6 +178,28 @@ public class FusionClient {
 		}
 	}
 
+	public void createDefaultHeader(MessageCategory messageCategory, String ServiceID){
+		messageHeader = new MessageHeader.Builder()
+                .messageClass(MessageClass.Service)
+                .messageCategory(messageCategory)
+                .messageType(MessageType.Request)
+                .serviceID(ServiceID)
+                .saleID(fusionClientConfig.saleID)
+                .POIID(fusionClientConfig.poiID)
+                .build();
+	}
+	
+	public void createDefaultSecurityTrailer(Request request){
+        try {
+            securityTrailer = SecurityTrailerUtil.generateSecurityTrailer(messageHeader, (Request)request,
+                    KEKConfig.getInstance().getValue());
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("securityTrailer");
+        }
+
+	}
+
 	public void sendMessage(String message) throws NotConnectedException {
 		LOGGER.info("Sending message to websocket server");
 
@@ -179,6 +209,7 @@ public class FusionClient {
 		this.userSession.getAsyncRemote().sendText(message);
 	}
 
+
 	public void sendMessage(SaleToPOIRequest message) throws NotConnectedException {
 		LOGGER.info("Sending message to websocket server");
 
@@ -187,6 +218,57 @@ public class FusionClient {
 		}
 		LOGGER.info("TX:" + message);
 		this.userSession.getAsyncRemote().sendObject(message);
+	}
+
+	public void sendMessage(Request message, String ServiceID) throws NotConnectedException {
+		LOGGER.info("Sending message to websocket server--Request,ServiceID");
+
+		MessageCategory mc = null;
+		RequestType requestType = RequestType.valueOf(message.getClass().getSimpleName());
+
+		switch (requestType) {
+			case LoginRequest:
+				mc = MessageCategory.Login;
+				break;
+			case AbortRequest:
+			 	mc = MessageCategory.Abort;
+				break;
+			case CardAcquisitionRequest:
+				mc = MessageCategory.CardAcquisition;
+				break;
+			case LogoutRequest:
+				mc = MessageCategory.Logout;
+				break;
+			case PaymentRequest:
+				mc = MessageCategory.Payment;
+				break;
+			case ReconciliationRequest:
+				mc = MessageCategory.Reconciliation;
+				break;
+			case ReversalRequest:
+				mc = MessageCategory.Reversal;
+				break;
+			case TransactionStatusRequest:
+				mc = MessageCategory.TransactionStatus;
+				break;
+			default:
+				break;
+		}
+
+		createDefaultHeader(mc, ServiceID);
+		createDefaultSecurityTrailer(message);
+
+		SaleToPOIRequest saleToPOI = new SaleToPOIRequest.Builder()
+				.messageHeader(messageHeader)
+				.request(message)//
+				.securityTrailer(securityTrailer)
+				.build();
+
+		if (!isConnected()) {
+			throw new NotConnectedException("Connection is closed!");
+		}
+		LOGGER.info("TX:" + saleToPOI);
+		this.userSession.getAsyncRemote().sendObject(saleToPOI);
 	}
 
 	public void sendMessage(SaleToPOIResponse message) throws NotConnectedException {
@@ -249,4 +331,14 @@ public class FusionClient {
 		return uri;
 	}
 
+	public enum RequestType{
+		AbortRequest,
+		PaymentRequest,
+		LoginRequest,
+		CardAcquisitionRequest,
+		LogoutRequest,
+		ReconciliationRequest,
+		TransactionStatusRequest,
+		ReversalRequest
+	}
 }

@@ -1,22 +1,18 @@
 package au.com.dmg.fusion.model;
 
-import static org.junit.Assert.assertEquals;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
+import au.com.dmg.fusion.data.MessageCategory;
+import au.com.dmg.fusion.data.MessageType;
+import com.squareup.moshi.JsonDataException;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.squareup.moshi.JsonDataException;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import au.com.dmg.fusion.data.MessageCategory;
-import au.com.dmg.fusion.data.MessageType;
+import static org.junit.Assert.assertEquals;
 
 public class SaleToPOIStringTest {
 
@@ -26,13 +22,13 @@ public class SaleToPOIStringTest {
 
 	@Before
 	public void init() throws UnsupportedEncodingException, IOException {
-		Path path = Paths.get("build\\resources\\test\\SaleToPOIPaymentResponse.json");
+		Path path = Paths.get("build/resources/test/SaleToPOIPaymentResponse.json");
 		this.message = new String(Files.readAllBytes(path.toAbsolutePath()), "UTF-8");
 	}
 
 	@Test
 	public void testFromJson() throws JsonDataException, IOException {
-		SaleToPOIString stps = SaleToPOIString.fromJson(message, MessageCategory.Payment, MessageType.Response);
+		au.com.dmg.fusion.model.SaleToPOIString stps = au.com.dmg.fusion.model.SaleToPOIString.fromJson(message, MessageCategory.Payment, MessageType.Response);
 		assertEquals(expectedMessageHeader, stps.getMessageHeader());
 		assertEquals(expectedBody, stps.getBody());
 	}
