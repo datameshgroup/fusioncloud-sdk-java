@@ -188,26 +188,28 @@ public class FusionClient {
 	public SaleToPOI readMessage() throws FusionException {
 		SaleToPOI saleToPOI =  null;
 
-		try {
+		try
+		{
 			boolean checkNextMessage;
-			do {
+			do
+			{
 				checkNextMessage = false;
 				// Check if we are connected
-				if (!isConnected()) {
+				if (!isConnected())
+				{
 					throw new FusionException("Connection is closed!", false);
 				}
 
 				Optional<SaleToPOI> optResponse = Optional
 						.ofNullable(responseQueue.poll(250, TimeUnit.MILLISECONDS));
 
-				if (optResponse.isPresent()) {
+				if (optResponse.isPresent())
+				{
 					saleToPOI = optResponse.get();
 
 					LOGGER.info("RX:" + saleToPOI);
 
-					if (saleToPOI != null) {
-						checkNextMessage = !validateMessage(saleToPOI);
-					}
+					checkNextMessage = !validateMessage(saleToPOI);
 				}
 
 			} while(checkNextMessage);
