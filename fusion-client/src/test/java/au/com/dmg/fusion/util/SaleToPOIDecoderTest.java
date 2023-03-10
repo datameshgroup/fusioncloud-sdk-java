@@ -22,7 +22,8 @@ public class SaleToPOIDecoderTest {
 
 	@Before
 	public void init() throws UnsupportedEncodingException, ConfigurationException {
-		this.decoder = new au.com.dmg.fusion.util.SaleToPOIDecoder("44DACB2A22A4A752ADC1BBFFE6CEFB589451E0FFD83F8B21");
+		SecurityTrailerUtil.KEK = "44DACB2A22A4A752ADC1BBFFE6CEFB589451E0FFD83F8B21";
+		this.decoder = new au.com.dmg.fusion.util.SaleToPOIDecoder();
 	}
 
 	@Test

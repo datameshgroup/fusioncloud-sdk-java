@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -31,6 +32,7 @@ import javax.websocket.Session;
 
 import au.com.dmg.fusion.request.transactionstatusrequest.TransactionStatusRequest;
 import au.com.dmg.fusion.response.TransactionStatusResponse;
+import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
 import au.com.dmg.fusion.util.*;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
@@ -64,10 +66,10 @@ public class FusionClient {
 
 	private final BlockingQueue<SaleToPOI> responseQueue;
 
-	public String SaleID;
-	public String POIID;
-	public String KEK;
-	public String CustomURL;
+	private String saleID;
+	private String poiID;
+	private String kek;
+	private String customURL;
 
 	public FusionClient(boolean useTestEnvironment) {
 
@@ -78,7 +80,7 @@ public class FusionClient {
 
 		lastTxnServiceID = null;
 		lastMessageRefServiceID = null;
-		CustomURL = null;
+		customURL = null;
 	}
 
 	public static interface MessageHandler {
@@ -88,8 +90,21 @@ public class FusionClient {
 	public static interface ErrorHandler {
 		public void handleError(Session session, Throwable t) throws Exception;
 	}
+	public void setSettings(String saleID, String poiID, String kek)
+	{
+		setSettings(saleID, poiID, kek, null);
+	}
 
-	public void connect(){
+	public void setSettings(String saleID, String poiID, String kek, String customURL)
+	{
+		this.saleID = saleID;
+		this.poiID = poiID;
+		this.kek = kek;
+		SecurityTrailerUtil.KEK = kek; //used by the SaleToPOIDecoder when processing a message
+		this.customURL = customURL;
+	}
+
+	public void connect() throws FusionException{
 		connect(0, 0);
 	}
 
@@ -182,19 +197,24 @@ public class FusionClient {
 					throw new FusionException("Connection is closed!", false);
 				}
 
-				saleToPOI = responseQueue.poll(250, TimeUnit.MILLISECONDS);
+				Optional<SaleToPOI> optResponse = Optional
+						.ofNullable(responseQueue.poll(250, TimeUnit.MILLISECONDS));
 
-				LOGGER.info("RX:" + saleToPOI);
+				if (optResponse.isPresent()) {
+					saleToPOI = optResponse.get();
 
-				if (saleToPOI != null) {
-					checkNextMessage = !validateMessage(saleToPOI);
+					LOGGER.info("RX:" + saleToPOI);
+
+					if (saleToPOI != null) {
+						checkNextMessage = !validateMessage(saleToPOI);
+					}
 				}
 
 			} while(checkNextMessage);
 		}
 		catch (Exception e) //InterruptedException handling is required for poll.  Handle other errors as well
 		{
-			LOGGER.info("An error occurred while polling the response queue: " + e.getMessage());
+			throw new FusionException("An error occurred while polling the response queue: " + e.getMessage());
 		}
 		
 		return saleToPOI;
@@ -205,7 +225,7 @@ public class FusionClient {
 	}
 
 	public void sendMessage(Request message, String serviceID) throws FusionException {
-		sendMessage(messageParser.BuildSaleToPOIMessage(serviceID, SaleID, POIID, KEK, message));
+		sendMessage(messageParser.BuildSaleToPOIMessage(serviceID, saleID, poiID, message));
 	}
 
 	public void sendMessage(SaleToPOIRequest saleToPOI) throws FusionException {
@@ -331,9 +351,9 @@ public class FusionClient {
 
 	private URI getServerDomain() throws URISyntaxException{
 		String serverURL;
-		if((CustomURL != null) && (CustomURL.length() > 0))
+		if((customURL != null) && (customURL.length() > 0))
 		{
-			serverURL = CustomURL;
+			serverURL = customURL;
 		}
 		else if(useTestEnvironment)
 		{

@@ -26,11 +26,6 @@ import au.com.dmg.fusion.exception.SecurityTrailerValidationException;
 public class SaleToPOIDecoder implements Decoder.Text<SaleToPOI> {
 
 	private final static Logger LOGGER = Logger.getLogger(SaleToPOIDecoder.class.getName());
-	private String kek;
-
-	public SaleToPOIDecoder(String kek){
-		this.kek = kek;
-	}
 
 	@Override
 	public void init(EndpointConfig config) {
@@ -62,7 +57,7 @@ public class SaleToPOIDecoder implements Decoder.Text<SaleToPOI> {
 
 		try {
 			SecurityTrailerUtil.validateSecurityTrailer(messageWrapper.getSecurityTrailer(),
-					kek, messageHeader.getMessageCategory(),
+					messageHeader.getMessageCategory(),
 					messageHeader.getMessageType(), s);
 
 		} catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException

@@ -36,12 +36,14 @@ import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
 
 public class SecurityTrailerUtil {
 
-	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, String kekValue, boolean useTestKeyIdentifier) {
+	public static String KEK = null;
+
+	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, boolean useTestKeyIdentifier) throws FusionException{
 		SecurityTrailer securityTrailer = null;
 		try {
 			// KEK encrypted key
 			byte[] key = Crypto.generate16ByteKey();
-			byte[] encryptedKey = Crypto.generateEncryptedKey(key, kekValue);
+			byte[] encryptedKey = Crypto.generateEncryptedKey(key, KEK);
 			String encryptedHexKey = Crypto.byteArrayToHexString(encryptedKey).toUpperCase();
 
 			// MAC
@@ -85,7 +87,7 @@ public class SecurityTrailerUtil {
 		return securityTrailer;
 	}
 
-	public static void validateSecurityTrailer(SecurityTrailer securityTrailer, String KEK,
+	public static void validateSecurityTrailer(SecurityTrailer securityTrailer,
 			MessageCategory messageCategory, MessageType messageType, String messageStr)
 			throws SecurityTrailerValidationException, InvalidKeyException, NoSuchAlgorithmException,
 			NoSuchPaddingException, InvalidAlgorithmParameterException, BadPaddingException, IllegalBlockSizeException,
