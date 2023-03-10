@@ -1,7 +1,6 @@
 package au.com.dmg.fusion.util;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -20,7 +19,6 @@ import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
 
 import au.com.dmg.fusion.MessageHeader;
-import au.com.dmg.fusion.config.KEKConfig;
 import au.com.dmg.fusion.data.MessageCategory;
 import au.com.dmg.fusion.data.MessageType;
 import au.com.dmg.fusion.exception.SecurityTrailerValidationException;
@@ -38,47 +36,52 @@ import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
 
 public class SecurityTrailerUtil {
 
-	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request){
+	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, String kekValue, boolean useTestKeyIdentifier) {
 		SecurityTrailer securityTrailer = null;
 		try {
-			securityTrailer = generateSecurityTrailer(messageHeader, request,
-					KEKConfig.getInstance().getValue());
-		} catch (Exception e) {
-			throw new FusionException("An error occurred while generating a Security Trailer: ", false);
+			// KEK encrypted key
+			byte[] key = Crypto.generate16ByteKey();
+			byte[] encryptedKey = Crypto.generateEncryptedKey(key, kekValue);
+			String encryptedHexKey = Crypto.byteArrayToHexString(encryptedKey).toUpperCase();
+
+			// MAC
+			String macBody = buildMACBody(messageHeader, request);
+			String hexKey = Crypto.byteArrayToHexString(key);
+			String MAC = Crypto.generateMAC(macBody, hexKey).toUpperCase();
+
+			//KeyIdentifier = useTestKeyIdentifier ? "SpecV2TestMACKey" : "SpecV2ProdMACKey",
+			String keyIdentifier;
+			if(useTestKeyIdentifier)
+			{
+				keyIdentifier = "SpecV2TestMACKey";
+			}
+			else
+			{
+				keyIdentifier = "SpecV2ProdMACKey";
+			}
+
+			//KeyVersion = useTestKeyIdentifier ? "20191122164326.594" : "20191122164326.594",
+			String keyVersion = "20191122164326.594";
+
+			// Security Trailer
+			KEK kek = new KEK("v4", //
+					new KEKIdentifier(keyIdentifier, keyVersion), //
+					new KeyEncryptionAlgorithm("des-ede3-cbc"), //
+					encryptedHexKey);
+
+			Recipient recipient = new Recipient(kek, //
+					new MACAlgorithm("id-retail-cbc-mac-sha-256"), //
+					new EncapsulatedContent("iddata"), //
+					MAC);
+
+			AuthenticatedData authenticatedData = new AuthenticatedData("v0", recipient);
+
+			securityTrailer = new SecurityTrailer("id-ctauthData", authenticatedData);
 		}
-		return securityTrailer;
-	}
-
-	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, String kekValue)
-			throws InvalidKeyException, NoSuchPaddingException, InvalidAlgorithmParameterException,
-			NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, UnsupportedEncodingException,
-			InvalidKeySpecException, ConfigurationException {
-
-		// KEK encrypted key
-		byte[] key = Crypto.generate16ByteKey();
-		byte[] encryptedKey = Crypto.generateEncryptedKey(key, kekValue);
-		String encryptedHexKey = Crypto.byteArrayToHexString(encryptedKey).toUpperCase();
-
-		// MAC
-		String macBody = buildMACBody(messageHeader, request);
-		String hexKey = Crypto.byteArrayToHexString(key);
-		String MAC = Crypto.generateMAC(macBody, hexKey).toUpperCase();
-
-		// Security Trailer
-		KEK kek = new KEK("v4", //
-				new KEKIdentifier(KEKConfig.getInstance().getKeyIdentifier(), KEKConfig.getInstance().getKeyVersion()), //
-				new KeyEncryptionAlgorithm("des-ede3-cbc"), //
-				encryptedHexKey);
-
-		Recipient recipient = new Recipient(kek, //
-				new MACAlgorithm("id-retail-cbc-mac-sha-256"), //
-				new EncapsulatedContent("iddata"), //
-				MAC);
-
-		AuthenticatedData authenticatedData = new AuthenticatedData("v0", recipient);
-
-		SecurityTrailer securityTrailer = new SecurityTrailer("id-ctauthData", authenticatedData);
-
+		catch (Exception ex)
+		{
+			throw new FusionException("An error occurred while generating a Security Trailer: " + ex.getMessage(), false);
+		}
 		return securityTrailer;
 	}
 

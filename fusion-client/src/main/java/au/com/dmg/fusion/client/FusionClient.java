@@ -11,7 +11,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -24,7 +23,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.websocket.ClientEndpoint;
 import javax.websocket.CloseReason;
-import javax.websocket.DeploymentException;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
@@ -40,7 +38,6 @@ import org.glassfish.tyrus.client.ClientProperties;
 
 import au.com.dmg.fusion.SaleToPOI;
 import au.com.dmg.fusion.data.MessageCategory;
-import au.com.dmg.fusion.config.*;
 import au.com.dmg.fusion.exception.FusionException;
 import au.com.dmg.fusion.request.Request;
 import au.com.dmg.fusion.request.SaleToPOIRequest;
@@ -52,23 +49,36 @@ public class FusionClient {
 
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
-	public FusionClientConfig fusionClientConfig;
 	Session userSession = null;
 	private MessageHandler messageHandler;
 	private ErrorHandler errorHandler;
-	private URI uri;
+
 	private final NexoMessageParser messageParser;
+
 	private String lastTxnServiceID;
 	private String lastMessageRefServiceID;
 
+	private URI uri;
+
+	private boolean useTestEnvironment = false;
+
 	private final BlockingQueue<SaleToPOI> responseQueue;
 
-	public FusionClient() {
+	public String SaleID;
+	public String POIID;
+	public String KEK;
+	public String CustomURL;
+
+	public FusionClient(boolean useTestEnvironment) {
+
+		this.useTestEnvironment = useTestEnvironment;
+
 		responseQueue = new LinkedBlockingQueue<>();
-		messageParser = new NexoMessageParser();
+		messageParser = new NexoMessageParser(useTestEnvironment);
 
 		lastTxnServiceID = null;
 		lastMessageRefServiceID = null;
+		CustomURL = null;
 	}
 
 	public static interface MessageHandler {
@@ -79,39 +89,31 @@ public class FusionClient {
 		public void handleError(Session session, Throwable t) throws Exception;
 	}
 
-	public void init(FusionClientConfig fusionClientConfig) throws URISyntaxException, DeploymentException, IOException, KeyManagementException,
-			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
-		this.fusionClientConfig = fusionClientConfig;
-
-		fusionClientConfig.init();
-		KEKConfig.init(fusionClientConfig.kekValue, fusionClientConfig.keyIdentifier, fusionClientConfig.keyVersion);
-		SaleSystemConfig.init(fusionClientConfig.providerIdentification, fusionClientConfig.applicationName, fusionClientConfig.softwareVersion, fusionClientConfig.certificationCode);
-
-		connect(fusionClientConfig.getServerDomain());
+	public void connect(){
+		connect(0, 0);
 	}
 
-	public void connect(URI endpointURI) throws DeploymentException, IOException, KeyManagementException,
-			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
-		connect(endpointURI, 0, 0);
-	}
-
-	public void connect(URI endpointURI, long sendTimeout, long maxSessionIdleTimeout)
-			throws CertificateException, KeyStoreException, NoSuchAlgorithmException, IOException,
-			KeyManagementException, DeploymentException, ConfigurationException {
+	public void connect(long sendTimeout, long maxSessionIdleTimeout)
+			throws FusionException {
 		LOGGER.info("Connecting to websocket server...");
 
-		ClientManager cm = ClientManager.createClient();
+		try {
+			URI serverDomain = getServerDomain();
+			ClientManager cm = ClientManager.createClient();
 
-		TrustManager[] trustManagers = addCertificate();
-		setProtocolVersion(trustManagers);
-		cm.getProperties().put(ClientProperties.SSL_ENGINE_CONFIGURATOR,
-				new SSLEngineConfigurator(SSLContext.getDefault(), true, false, false));
+			TrustManager[] trustManagers = addCertificate();
+			setProtocolVersion(trustManagers);
+			cm.getProperties().put(ClientProperties.SSL_ENGINE_CONFIGURATOR,
+					new SSLEngineConfigurator(SSLContext.getDefault(), true, false, false));
 
-		this.uri = endpointURI;
+			this.uri = serverDomain;
 
-		cm.setAsyncSendTimeout(sendTimeout);
-		cm.setDefaultMaxSessionIdleTimeout(maxSessionIdleTimeout);
-		cm.connectToServer(this, endpointURI);
+			cm.setAsyncSendTimeout(sendTimeout);
+			cm.setDefaultMaxSessionIdleTimeout(maxSessionIdleTimeout);
+			cm.connectToServer(this, serverDomain);
+		} catch (Exception ex) {
+			throw new FusionException("Error when connecting to WebSocket server" + ex.getMessage(), false);
+		}
 	}
 
 	public void disconnect() throws IOException {
@@ -203,7 +205,7 @@ public class FusionClient {
 	}
 
 	public void sendMessage(Request message, String serviceID) throws FusionException {
-		sendMessage(messageParser.BuildSaleToPOIMessage(serviceID, fusionClientConfig.saleID, fusionClientConfig.poiID, message));
+		sendMessage(messageParser.BuildSaleToPOIMessage(serviceID, SaleID, POIID, KEK, message));
 	}
 
 	public void sendMessage(SaleToPOIRequest saleToPOI) throws FusionException {
@@ -250,14 +252,14 @@ public class FusionClient {
 	private void setProtocolVersion(TrustManager[] trustManagers)
 			throws NoSuchAlgorithmException, KeyManagementException, IOException, ConfigurationException {
 
-		SSLContext context = SSLContext.getInstance(FusionClientConfig.getInstance().getSocketProtocol());
+		SSLContext context = SSLContext.getInstance("TLSv1.2");
 		context.init(null, trustManagers, null);
 		SSLContext.setDefault(context);
 	}
 
 	private TrustManager[] addCertificate() throws CertificateException, KeyStoreException, NoSuchAlgorithmException,
 			IOException, ConfigurationException {
-		String cert = Cert.getCertificate(FusionClientConfig.getInstance().getEnv());
+		String cert = Cert.getCertificate(useTestEnvironment);
 		InputStream fis = new ByteArrayInputStream(cert.getBytes(StandardCharsets.UTF_8));
 
 		X509Certificate ca = (X509Certificate) CertificateFactory.getInstance("X.509")
@@ -325,5 +327,22 @@ public class FusionClient {
 
 		}
 		return messageValid;
+	}
+
+	private URI getServerDomain() throws URISyntaxException{
+		String serverURL;
+		if((CustomURL != null) && (CustomURL.length() > 0))
+		{
+			serverURL = CustomURL;
+		}
+		else if(useTestEnvironment)
+		{
+			serverURL = "wss://www.cloudposintegration.io/nexouat1";
+		}
+		else
+		{
+			serverURL = "wss://nexo.datameshgroup.io:5000";
+		}
+		return new URI(serverURL);
 	}
 }

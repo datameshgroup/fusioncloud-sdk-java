@@ -1,6 +1,5 @@
 package au.com.dmg.fusion.util;
 
-import au.com.dmg.fusion.config.KEKConfig;
 import au.com.dmg.fusion.request.SaleToPOIRequest;
 import au.com.dmg.fusion.response.SaleToPOIResponse;
 import org.junit.Before;
@@ -23,11 +22,7 @@ public class SaleToPOIDecoderTest {
 
 	@Before
 	public void init() throws UnsupportedEncodingException, ConfigurationException {
-		this.decoder = new au.com.dmg.fusion.util.SaleToPOIDecoder();
-
-		if (!KEKConfig.isInitialised()) {
-			KEKConfig.init("44DACB2A22A4A752ADC1BBFFE6CEFB589451E0FFD83F8B21", "SpecV2TestMACKey", "20191122164326.594");
-		}
+		this.decoder = new au.com.dmg.fusion.util.SaleToPOIDecoder("44DACB2A22A4A752ADC1BBFFE6CEFB589451E0FFD83F8B21");
 	}
 
 	@Test

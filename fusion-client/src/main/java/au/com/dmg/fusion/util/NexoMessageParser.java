@@ -22,9 +22,16 @@ public class NexoMessageParser {
     /// ProtocolVersion implemented by this NexoMessageParser.
     public String ProtocolVersion = "3.1-dmg";
 
+    /// Defines if we should be using production or test keys
+    public boolean useTestKeyIdentifier;
+
     private String errorString = null;
 
-    public SaleToPOIRequest BuildSaleToPOIMessage(String serviceID, String saleID, String poiID, Request requestMessage) {
+    public NexoMessageParser(boolean useTestKeyIdentifier){
+        this.useTestKeyIdentifier = useTestKeyIdentifier;
+    }
+
+    public SaleToPOIRequest BuildSaleToPOIMessage(String serviceID, String saleID, String poiID, String kek, Request requestMessage) {
         errorString = null;
 
         if (requestMessage == null){
@@ -33,7 +40,8 @@ public class NexoMessageParser {
         if(!isValueValid("Protocol Version", ProtocolVersion) ||
                 !isValueValid("Service ID", serviceID) ||
                 !isValueValid("Sale ID", saleID) ||
-                !isValueValid("POI ID", poiID)){
+                !isValueValid("POI ID", poiID) ||
+                !isValueValid("KEK", kek)){
             throw new FusionException(errorString, false);
         }
 
@@ -48,7 +56,7 @@ public class NexoMessageParser {
                 .POIID(poiID)
                 .build();
 
-        SecurityTrailer securityTrailer = SecurityTrailerUtil.generateSecurityTrailer(messageHeader, requestMessage);
+        SecurityTrailer securityTrailer = SecurityTrailerUtil.generateSecurityTrailer(messageHeader, requestMessage, kek, useTestKeyIdentifier);
         SaleToPOIRequest saleToPOI = new SaleToPOIRequest.Builder()
                 .messageHeader(messageHeader)
                 .request(requestMessage)

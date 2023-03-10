@@ -21,12 +21,16 @@ import com.squareup.moshi.JsonDataException;
 import au.com.dmg.fusion.Message;
 import au.com.dmg.fusion.MessageHeader;
 import au.com.dmg.fusion.SaleToPOI;
-import au.com.dmg.fusion.config.KEKConfig;
 import au.com.dmg.fusion.exception.SecurityTrailerValidationException;
 
 public class SaleToPOIDecoder implements Decoder.Text<SaleToPOI> {
 
 	private final static Logger LOGGER = Logger.getLogger(SaleToPOIDecoder.class.getName());
+	private String kek;
+
+	public SaleToPOIDecoder(String kek){
+		this.kek = kek;
+	}
 
 	@Override
 	public void init(EndpointConfig config) {
@@ -58,12 +62,12 @@ public class SaleToPOIDecoder implements Decoder.Text<SaleToPOI> {
 
 		try {
 			SecurityTrailerUtil.validateSecurityTrailer(messageWrapper.getSecurityTrailer(),
-					KEKConfig.getInstance().getValue(), messageHeader.getMessageCategory(),
+					kek, messageHeader.getMessageCategory(),
 					messageHeader.getMessageType(), s);
 
 		} catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 				| InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException
-				| InvalidKeySpecException | ConfigurationException e) {
+				| InvalidKeySpecException e) {
 
 			LOGGER.log(Level.SEVERE, e.getMessage());
 			throw new SecurityTrailerValidationException(s, e.getMessage());
