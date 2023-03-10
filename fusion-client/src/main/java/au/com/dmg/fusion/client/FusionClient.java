@@ -4,9 +4,6 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -14,16 +11,13 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
-import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.naming.ConfigurationException;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -37,26 +31,20 @@ import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
 
-import au.com.dmg.fusion.util.Cert;
+import au.com.dmg.fusion.request.transactionstatusrequest.TransactionStatusRequest;
+import au.com.dmg.fusion.response.TransactionStatusResponse;
+import au.com.dmg.fusion.util.*;
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
 
-import au.com.dmg.fusion.MessageHeader;
 import au.com.dmg.fusion.SaleToPOI;
 import au.com.dmg.fusion.data.MessageCategory;
-import au.com.dmg.fusion.data.MessageClass;
-import au.com.dmg.fusion.data.MessageType;
 import au.com.dmg.fusion.config.*;
-import au.com.dmg.fusion.exception.NotConnectedException;
+import au.com.dmg.fusion.exception.FusionException;
 import au.com.dmg.fusion.request.Request;
 import au.com.dmg.fusion.request.SaleToPOIRequest;
 import au.com.dmg.fusion.response.SaleToPOIResponse;
-import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
-import au.com.dmg.fusion.util.SaleToPOIDecoder;
-import au.com.dmg.fusion.util.SaleToPOIRequestEncoder;
-import au.com.dmg.fusion.util.SaleToPOIResponseEncoder;
-import au.com.dmg.fusion.util.SecurityTrailerUtil;
 
 @ClientEndpoint(encoders = { SaleToPOIRequestEncoder.class, SaleToPOIResponseEncoder.class }, decoders = {
 		SaleToPOIDecoder.class })
@@ -69,13 +57,27 @@ public class FusionClient {
 	private MessageHandler messageHandler;
 	private ErrorHandler errorHandler;
 	private URI uri;
-	private String env;
-	
-	public final BlockingQueue<SaleToPOIResponse> inQueueResponse;
-	public final BlockingQueue<SaleToPOIRequest> inQueueRequest;
+	private final NexoMessageParser messageParser;
+	private String lastTxnServiceID;
+	private String lastMessageRefServiceID;
 
-	private MessageHeader messageHeader;
-	private SecurityTrailer securityTrailer;
+	private final BlockingQueue<SaleToPOI> responseQueue;
+
+	public FusionClient() {
+		responseQueue = new LinkedBlockingQueue<>();
+		messageParser = new NexoMessageParser();
+
+		lastTxnServiceID = null;
+		lastMessageRefServiceID = null;
+	}
+
+	public static interface MessageHandler {
+		public void handleMessage(SaleToPOI message);
+	}
+
+	public static interface ErrorHandler {
+		public void handleError(Session session, Throwable t) throws Exception;
+	}
 
 	public void init(FusionClientConfig fusionClientConfig) throws URISyntaxException, DeploymentException, IOException, KeyManagementException,
 			NoSuchAlgorithmException, CertificateException, KeyStoreException, ConfigurationException {
@@ -86,14 +88,6 @@ public class FusionClient {
 		SaleSystemConfig.init(fusionClientConfig.providerIdentification, fusionClientConfig.applicationName, fusionClientConfig.softwareVersion, fusionClientConfig.certificationCode);
 
 		connect(fusionClientConfig.getServerDomain());
-
-		// createDefaultHeader();
-		// createDefaultSecurityTrailer();
-	}
-
-	public FusionClient() {
-		inQueueResponse = new LinkedBlockingQueue<>();
-		inQueueRequest = new LinkedBlockingQueue<>();
 	}
 
 	public void connect(URI endpointURI) throws DeploymentException, IOException, KeyManagementException,
@@ -135,11 +129,7 @@ public class FusionClient {
 			public void handleMessage(SaleToPOI message) {
 				LOGGER.info("RX:" + message);
 				try {
-					if (message instanceof SaleToPOIRequest) {
-						inQueueRequest.put((SaleToPOIRequest) message);
-					} else if (message instanceof SaleToPOIResponse) {
-						inQueueResponse.put((SaleToPOIResponse) message);
-					}
+					responseQueue.put(message);
 				} catch (InterruptedException e) {
 					LOGGER.log(Level.SEVERE, e.getMessage());
 				}
@@ -178,106 +168,66 @@ public class FusionClient {
 		}
 	}
 
-	public void createDefaultHeader(MessageCategory messageCategory, String ServiceID){
-		messageHeader = new MessageHeader.Builder()
-                .messageClass(MessageClass.Service)
-                .messageCategory(messageCategory)
-                .messageType(MessageType.Request)
-                .serviceID(ServiceID)
-                .saleID(fusionClientConfig.saleID)
-                .POIID(fusionClientConfig.poiID)
-                .build();
-	}
-	
-	public void createDefaultSecurityTrailer(Request request){
-        try {
-            securityTrailer = SecurityTrailerUtil.generateSecurityTrailer(messageHeader, (Request)request,
-                    KEKConfig.getInstance().getValue());
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("securityTrailer");
-        }
+	public SaleToPOI readMessage() throws FusionException {
+		SaleToPOI saleToPOI =  null;
 
+		try {
+			boolean checkNextMessage;
+			do {
+				checkNextMessage = false;
+				// Check if we are connected
+				if (!isConnected()) {
+					throw new FusionException("Connection is closed!", false);
+				}
+
+				saleToPOI = responseQueue.poll(250, TimeUnit.MILLISECONDS);
+
+				LOGGER.info("RX:" + saleToPOI);
+
+				if (saleToPOI != null) {
+					checkNextMessage = !validateMessage(saleToPOI);
+				}
+
+			} while(checkNextMessage);
+		}
+		catch (Exception e) //InterruptedException handling is required for poll.  Handle other errors as well
+		{
+			LOGGER.info("An error occurred while polling the response queue: " + e.getMessage());
+		}
+		
+		return saleToPOI;
 	}
 
-	public void sendMessage(String message) throws NotConnectedException {
+	public void sendMessage(Request message) throws FusionException {
+		sendMessage(message, MessageHeaderUtil.generateServiceID(10));
+	}
+
+	public void sendMessage(Request message, String serviceID) throws FusionException {
+		sendMessage(messageParser.BuildSaleToPOIMessage(serviceID, fusionClientConfig.saleID, fusionClientConfig.poiID, message));
+	}
+
+	public void sendMessage(SaleToPOIRequest saleToPOI) throws FusionException {
 		LOGGER.info("Sending message to websocket server");
 
 		if (!isConnected()) {
-			throw new NotConnectedException("Connection is closed!");
-		}
-		this.userSession.getAsyncRemote().sendText(message);
-	}
-
-
-	public void sendMessage(SaleToPOIRequest message) throws NotConnectedException {
-		LOGGER.info("Sending message to websocket server");
-
-		if (!isConnected()) {
-			throw new NotConnectedException("Connection is closed!");
-		}
-		LOGGER.info("TX:" + message);
-		this.userSession.getAsyncRemote().sendObject(message);
-	}
-
-	public void sendMessage(Request message, String ServiceID) throws NotConnectedException {
-		LOGGER.info("Sending message to websocket server--Request,ServiceID");
-
-		MessageCategory mc = null;
-		RequestType requestType = RequestType.valueOf(message.getClass().getSimpleName());
-
-		switch (requestType) {
-			case LoginRequest:
-				mc = MessageCategory.Login;
-				break;
-			case AbortRequest:
-			 	mc = MessageCategory.Abort;
-				break;
-			case CardAcquisitionRequest:
-				mc = MessageCategory.CardAcquisition;
-				break;
-			case LogoutRequest:
-				mc = MessageCategory.Logout;
-				break;
-			case PaymentRequest:
-				mc = MessageCategory.Payment;
-				break;
-			case ReconciliationRequest:
-				mc = MessageCategory.Reconciliation;
-				break;
-			case ReversalRequest:
-				mc = MessageCategory.Reversal;
-				break;
-			case TransactionStatusRequest:
-				mc = MessageCategory.TransactionStatus;
-				break;
-			default:
-				break;
+			throw new FusionException("Connection is closed!");
 		}
 
-		createDefaultHeader(mc, ServiceID);
-		createDefaultSecurityTrailer(message);
-
-		SaleToPOIRequest saleToPOI = new SaleToPOIRequest.Builder()
-				.messageHeader(messageHeader)
-				.request(message)//
-				.securityTrailer(securityTrailer)
-				.build();
-
-		if (!isConnected()) {
-			throw new NotConnectedException("Connection is closed!");
+		if(saleToPOI.getMessageHeader().getMessageCategory() == MessageCategory.TransactionStatus){
+			TransactionStatusRequest tsr = saleToPOI.getTransactionStatusRequest();
+			if(tsr != null){
+				lastMessageRefServiceID = tsr.getMessageReference().getServiceID();
+				LOGGER.info("Request Message Reference ServiceID = " + lastMessageRefServiceID);
+			}
 		}
+		if(saleToPOI.getMessageHeader().getMessageCategory() != MessageCategory.Abort){
+			lastTxnServiceID = saleToPOI.getMessageHeader().getServiceID();
+			LOGGER.info("Request ServiceID = " + lastTxnServiceID);
+		}
+
 		LOGGER.info("TX:" + saleToPOI);
+
 		this.userSession.getAsyncRemote().sendObject(saleToPOI);
-	}
-
-	public void sendMessage(SaleToPOIResponse message) throws NotConnectedException {
-		LOGGER.info("Sending message to websocket server");
-
-		if (!isConnected()) {
-			throw new NotConnectedException("Connection is closed!");
-		}
-		this.userSession.getAsyncRemote().sendObject(message);
 
 	}
 
@@ -285,20 +235,16 @@ public class FusionClient {
 		this.messageHandler = msgHandler;
 	}
 
-	public static interface MessageHandler {
-		public void handleMessage(SaleToPOI message);
-	}
-
 	public void setErrorHandler(ErrorHandler errHandler) {
 		this.errorHandler = errHandler;
 	}
 
-	public static interface ErrorHandler {
-		public void handleError(Session session, Throwable t) throws Exception;
-	}
-
 	public boolean isConnected() {
 		return userSession != null && userSession.isOpen();
+	}
+
+	public URI getURI() {
+		return uri;
 	}
 
 	private void setProtocolVersion(TrustManager[] trustManagers)
@@ -327,18 +273,57 @@ public class FusionClient {
 		return tmf.getTrustManagers();
 	}
 
-	public URI getURI() {
-		return uri;
-	}
+	private boolean validateMessage(SaleToPOI message) {
 
-	public enum RequestType{
-		AbortRequest,
-		PaymentRequest,
-		LoginRequest,
-		CardAcquisitionRequest,
-		LogoutRequest,
-		ReconciliationRequest,
-		TransactionStatusRequest,
-		ReversalRequest
+		if((lastTxnServiceID == null) || (lastTxnServiceID.length() == 0))
+		{
+			return true;
+		}
+
+		boolean messageValid = true;
+
+		if (message instanceof SaleToPOIResponse) {
+			SaleToPOIResponse response = (SaleToPOIResponse) message;
+
+			MessageCategory messageCategory = response.getMessageHeader().getMessageCategory();
+			//Don't verify ServiceID for EventNotification
+			if (messageCategory == MessageCategory.Event) {
+				return true;
+			}
+
+			String currentServiceID = response.getMessageHeader().getServiceID();
+			if ((currentServiceID == null) || (currentServiceID.length() == 0)) {
+				LOGGER.info("No ServiceID received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
+				return false;
+			}
+
+			if (!currentServiceID.equals(lastTxnServiceID)) {
+				LOGGER.info("Unexpected ServiceID " + currentServiceID + " received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
+				return false;
+			}
+
+			if(messageCategory == MessageCategory.TransactionStatus)
+			{
+				currentServiceID = "";
+				messageValid = false;
+				TransactionStatusResponse tsResponse = response.getTransactionStatusResponse();
+				if(tsResponse != null){
+					if(tsResponse.getRepeatedMessageResponse() != null){
+						if(tsResponse.getRepeatedMessageResponse().getMessageHeader() != null) {
+							currentServiceID = tsResponse.getRepeatedMessageResponse().getMessageHeader().getServiceID();
+						}
+					}
+					else if(tsResponse.getMessageReference() != null){ //Failure - In Progress
+						currentServiceID = tsResponse.getMessageReference().getServiceID();
+					}
+					messageValid = lastMessageRefServiceID.equals(currentServiceID);
+					if(!messageValid){
+						LOGGER.info("Unexpected Message Reference ServiceID " + currentServiceID + " received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
+					}
+				}
+			}
+
+		}
+		return messageValid;
 	}
 }

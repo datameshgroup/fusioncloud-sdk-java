@@ -6,6 +6,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.logging.Level;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -13,6 +14,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.naming.ConfigurationException;
 
+import au.com.dmg.fusion.exception.FusionException;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonDataException;
 import com.squareup.moshi.Moshi;
@@ -36,14 +38,25 @@ import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
 
 public class SecurityTrailerUtil {
 
-	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, String KEK)
+	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request){
+		SecurityTrailer securityTrailer = null;
+		try {
+			securityTrailer = generateSecurityTrailer(messageHeader, request,
+					KEKConfig.getInstance().getValue());
+		} catch (Exception e) {
+			throw new FusionException("An error occurred while generating a Security Trailer: ", false);
+		}
+		return securityTrailer;
+	}
+
+	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, String kekValue)
 			throws InvalidKeyException, NoSuchPaddingException, InvalidAlgorithmParameterException,
 			NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, UnsupportedEncodingException,
 			InvalidKeySpecException, ConfigurationException {
 
 		// KEK encrypted key
 		byte[] key = Crypto.generate16ByteKey();
-		byte[] encryptedKey = Crypto.generateEncryptedKey(key, KEK);
+		byte[] encryptedKey = Crypto.generateEncryptedKey(key, kekValue);
 		String encryptedHexKey = Crypto.byteArrayToHexString(encryptedKey).toUpperCase();
 
 		// MAC
