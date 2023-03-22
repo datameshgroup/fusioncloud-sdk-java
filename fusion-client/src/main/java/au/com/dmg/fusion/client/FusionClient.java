@@ -205,11 +205,10 @@ public class FusionClient {
 
 				if (optResponse.isPresent())
 				{
-					saleToPOI = optResponse.get();
 
-					LOGGER.info("RX:" + saleToPOI);
-
-					checkNextMessage = !validateMessage(saleToPOI);
+					LOGGER.info("RX:" + optResponse.get());
+					checkNextMessage = !validateMessage(optResponse.get());
+					saleToPOI = checkNextMessage ? null : optResponse.get();
 				}
 
 			} while(checkNextMessage);
@@ -223,7 +222,7 @@ public class FusionClient {
 	}
 
 	public void sendMessage(Request message) throws FusionException {
-		sendMessage(message, MessageHeaderUtil.generateServiceID(10));
+		sendMessage(message, MessageHeaderUtil.generateServiceID());
 	}
 
 	public void sendMessage(Request message, String serviceID) throws FusionException {
@@ -234,7 +233,13 @@ public class FusionClient {
 		LOGGER.info("Sending message to websocket server");
 
 		if (!isConnected()) {
-			throw new FusionException("Connection is closed!");
+			LOGGER.info("Websocket connection is closed. Trying to connect..");
+			try{
+				this.connect();
+			} catch (FusionException e){
+				throw new FusionException("Connection is closed! " + e);
+			}
+
 		}
 
 		if(saleToPOI.getMessageHeader().getMessageCategory() == MessageCategory.TransactionStatus){
@@ -306,6 +311,24 @@ public class FusionClient {
 
 		boolean messageValid = true;
 
+		if(message instanceof SaleToPOIRequest){
+			SaleToPOIRequest request = (SaleToPOIRequest) message;
+
+			MessageCategory messageCategory = request.getMessageHeader().getMessageCategory();
+			String currentServiceID = request.getMessageHeader().getServiceID();
+
+			if ((currentServiceID == null) || (currentServiceID.length() == 0)) {
+				LOGGER.info("No ServiceID received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
+				return false;
+			}
+
+			if (!currentServiceID.equals(lastTxnServiceID)) {
+				LOGGER.info("Unexpected ServiceID " + currentServiceID + " received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
+				return false;
+			}
+
+		}
+
 		if (message instanceof SaleToPOIResponse) {
 			SaleToPOIResponse response = (SaleToPOIResponse) message;
 
@@ -339,6 +362,14 @@ public class FusionClient {
 					}
 					else if(tsResponse.getMessageReference() != null){ //Failure - In Progress
 						currentServiceID = tsResponse.getMessageReference().getServiceID();
+					}
+					else{ //Message not found, does not have MessageReference
+						currentServiceID = response.getMessageHeader().getServiceID();
+						messageValid = lastTxnServiceID.equals(currentServiceID);
+						if(!messageValid){
+							LOGGER.info("Unexpected ServiceID " + currentServiceID + " received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
+						}
+						return messageValid; // Exit for NotFound
 					}
 					messageValid = lastMessageRefServiceID.equals(currentServiceID);
 					if(!messageValid){

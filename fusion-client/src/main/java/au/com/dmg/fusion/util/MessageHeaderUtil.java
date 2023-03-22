@@ -14,4 +14,8 @@ public class MessageHeaderUtil {
 		return sb.toString();
 	}
 
+	public static String generateServiceID() {
+		return java.util.UUID.randomUUID().toString();
+	}
+
 }
