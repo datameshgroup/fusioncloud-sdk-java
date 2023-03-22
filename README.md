@@ -27,7 +27,7 @@ fusionClient = new FusionClient(useTestEnvironment: true | false);
     saleID = "<<Provided by DataMesh>>";
     poiID = "<<Provided by DataMesh>>";
     kek = "<<Provided by DataMesh>>";
-this.fusionClient.setSettings(saleID, poiID, kek); 
+fusionClient.setSettings(saleID, poiID, kek); 
 
 ```
 
@@ -45,8 +45,9 @@ String certificationCode = "<<Provided by DataMesh>>";
 
 Socket connection is managed for every transaction request. 
 To send a transaction request, call `fusionClient.sendMessage(request, serviceID);`
-- **The serviceID of the transaction should be UUID, it can also be generated using `MessageHeaderUtil.generateServiceID();`. 
-- - **The request is built using [Java Fusion SDK](https://github.com/datameshgroup/fusionsatellite-sdk-java). see sample code below.
+- The serviceID of the transaction should be UUID, it can also be generated using `MessageHeaderUtil.generateServiceID();`. 
+- The request is built using [Java Fusion SDK](https://github.com/datameshgroup/fusionsatellite-sdk-java).
+- Sample code:
 
 
 ```
