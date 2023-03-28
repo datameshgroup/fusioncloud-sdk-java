@@ -186,13 +186,13 @@ public class FusionClient {
 	}
 
 	public SaleToPOI readMessage() throws FusionException {
-		SaleToPOI saleToPOI =  null;
-
+		SaleToPOI saleToPOI;
 		try
 		{
 			boolean checkNextMessage;
 			do
 			{
+				saleToPOI =  null;
 				checkNextMessage = false;
 				// Check if we are connected
 				if (!isConnected())
@@ -205,10 +205,9 @@ public class FusionClient {
 
 				if (optResponse.isPresent())
 				{
-
-					LOGGER.info("RX:" + optResponse.get());
-					checkNextMessage = !validateMessage(optResponse.get());
-					saleToPOI = checkNextMessage ? null : optResponse.get();
+					saleToPOI = optResponse.get();
+					LOGGER.info("RX:" + saleToPOI);
+					checkNextMessage = !validateMessage(saleToPOI);
 				}
 
 			} while(checkNextMessage);
@@ -329,7 +328,7 @@ public class FusionClient {
 
 		}
 
-		if (message instanceof SaleToPOIResponse) {
+		else if (message instanceof SaleToPOIResponse) {
 			SaleToPOIResponse response = (SaleToPOIResponse) message;
 
 			MessageCategory messageCategory = response.getMessageHeader().getMessageCategory();
@@ -364,12 +363,7 @@ public class FusionClient {
 						currentServiceID = tsResponse.getMessageReference().getServiceID();
 					}
 					else{ //Message not found, does not have MessageReference
-						currentServiceID = response.getMessageHeader().getServiceID();
-						messageValid = lastTxnServiceID.equals(currentServiceID);
-						if(!messageValid){
-							LOGGER.info("Unexpected ServiceID " + currentServiceID + " received in " + messageCategory + ".  Expected value is " + lastTxnServiceID + " .  Will process the next message instead.");
-						}
-						return messageValid; // Exit for NotFound
+						return true; // Exit for NotFound
 					}
 					messageValid = lastMessageRefServiceID.equals(currentServiceID);
 					if(!messageValid){
