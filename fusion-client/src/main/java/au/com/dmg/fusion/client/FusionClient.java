@@ -49,6 +49,8 @@ import au.com.dmg.fusion.response.SaleToPOIResponse;
 		SaleToPOIDecoder.class })
 public class FusionClient {
 
+	private final static String fusionCloudVersion = "1.0.8";
+
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
 	Session userSession = null;
@@ -104,13 +106,18 @@ public class FusionClient {
 		this.customURL = customURL;
 	}
 
+	public String getVersion(){
+		LOGGER.info("Fusion Cloud Version: " + fusionCloudVersion);
+		return fusionCloudVersion;
+	}
+
 	public void connect() throws FusionException{
 		connect(0, 0);
 	}
 
 	public void connect(long sendTimeout, long maxSessionIdleTimeout)
 			throws FusionException {
-		LOGGER.info("Connecting to websocket server...");
+		LOGGER.info("(Version: " + fusionCloudVersion + ") Connecting to websocket server...");
 
 		try {
 			URI serverDomain = getServerDomain();
@@ -127,7 +134,7 @@ public class FusionClient {
 			cm.setDefaultMaxSessionIdleTimeout(maxSessionIdleTimeout);
 			cm.connectToServer(this, serverDomain);
 		} catch (Exception ex) {
-			throw new FusionException("Error when connecting to WebSocket server" + ex.getMessage(), false);
+			throw new FusionException("(Version: " + fusionCloudVersion + ") Error when connecting to WebSocket server" + ex.getMessage(), false);
 		}
 	}
 
