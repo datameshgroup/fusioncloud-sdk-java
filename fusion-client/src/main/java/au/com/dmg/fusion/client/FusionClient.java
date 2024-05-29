@@ -8,9 +8,6 @@ import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -123,8 +120,6 @@ public class FusionClient {
 			URI serverDomain = getServerDomain();
 			ClientManager cm = ClientManager.createClient();
 
-			TrustManager[] trustManagers = addCertificate();
-			setProtocolVersion(trustManagers);
 			cm.getProperties().put(ClientProperties.SSL_ENGINE_CONFIGURATOR,
 					new SSLEngineConfigurator(SSLContext.getDefault(), true, false, false));
 
@@ -288,24 +283,6 @@ public class FusionClient {
 		SSLContext context = SSLContext.getInstance("TLSv1.2");
 		context.init(null, trustManagers, null);
 		SSLContext.setDefault(context);
-	}
-
-	private TrustManager[] addCertificate() throws CertificateException, KeyStoreException, NoSuchAlgorithmException,
-			IOException, ConfigurationException {
-		String cert = Cert.getCertificate(useTestEnvironment);
-		InputStream fis = new ByteArrayInputStream(cert.getBytes(StandardCharsets.UTF_8));
-
-		X509Certificate ca = (X509Certificate) CertificateFactory.getInstance("X.509")
-				.generateCertificate(new BufferedInputStream(fis));
-
-		KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-		ks.load(null, null);
-		ks.setCertificateEntry("unify-test", ca);
-
-		TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-		tmf.init(ks);
-
-		return tmf.getTrustManagers();
 	}
 
 	private boolean validateMessage(SaleToPOI message) {
