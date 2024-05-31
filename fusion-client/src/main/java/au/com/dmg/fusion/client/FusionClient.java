@@ -46,7 +46,7 @@ import au.com.dmg.fusion.response.SaleToPOIResponse;
 		SaleToPOIDecoder.class })
 public class FusionClient {
 
-	private final static String fusionCloudVersion = "1.0.8";
+	private final static String fusionCloudVersion = "1.0.9";
 
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
