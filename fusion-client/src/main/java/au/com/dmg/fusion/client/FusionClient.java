@@ -1,12 +1,26 @@
 package au.com.dmg.fusion.client;
 
-import java.io.*;
+import au.com.dmg.fusion.SaleToPOI;
+import au.com.dmg.fusion.data.MessageCategory;
+import au.com.dmg.fusion.exception.FusionException;
+import au.com.dmg.fusion.request.Request;
+import au.com.dmg.fusion.request.SaleToPOIRequest;
+import au.com.dmg.fusion.request.transactionstatusrequest.TransactionStatusRequest;
+import au.com.dmg.fusion.response.SaleToPOIResponse;
+import au.com.dmg.fusion.response.TransactionStatusResponse;
+import au.com.dmg.fusion.util.*;
+import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
+import org.glassfish.tyrus.client.ClientManager;
+import org.glassfish.tyrus.client.ClientProperties;
+
+import javax.naming.ConfigurationException;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.websocket.*;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
@@ -15,38 +29,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.naming.ConfigurationException;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.websocket.ClientEndpoint;
-import javax.websocket.CloseReason;
-import javax.websocket.OnClose;
-import javax.websocket.OnError;
-import javax.websocket.OnMessage;
-import javax.websocket.OnOpen;
-import javax.websocket.Session;
-
-import au.com.dmg.fusion.request.transactionstatusrequest.TransactionStatusRequest;
-import au.com.dmg.fusion.response.TransactionStatusResponse;
-import au.com.dmg.fusion.securitytrailer.SecurityTrailer;
-import au.com.dmg.fusion.util.*;
-import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
-import org.glassfish.tyrus.client.ClientManager;
-import org.glassfish.tyrus.client.ClientProperties;
-
-import au.com.dmg.fusion.SaleToPOI;
-import au.com.dmg.fusion.data.MessageCategory;
-import au.com.dmg.fusion.exception.FusionException;
-import au.com.dmg.fusion.request.Request;
-import au.com.dmg.fusion.request.SaleToPOIRequest;
-import au.com.dmg.fusion.response.SaleToPOIResponse;
-
 @ClientEndpoint(encoders = { SaleToPOIRequestEncoder.class, SaleToPOIResponseEncoder.class }, decoders = {
 		SaleToPOIDecoder.class })
 public class FusionClient {
 
-	private final static String fusionCloudVersion = "1.0.9";
+	private final static String fusionCloudVersion = "1.0.10";
 
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
