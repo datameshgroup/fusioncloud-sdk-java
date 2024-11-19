@@ -6,6 +6,7 @@ import au.com.dmg.fusion.exception.FusionException;
 import au.com.dmg.fusion.request.Request;
 import au.com.dmg.fusion.request.SaleToPOIRequest;
 import au.com.dmg.fusion.request.transactionstatusrequest.TransactionStatusRequest;
+import au.com.dmg.fusion.response.ResponseType;
 import au.com.dmg.fusion.response.SaleToPOIResponse;
 import au.com.dmg.fusion.response.TransactionStatusResponse;
 import au.com.dmg.fusion.util.*;
@@ -33,7 +34,7 @@ import java.util.logging.Logger;
 		SaleToPOIDecoder.class })
 public class FusionClient {
 
-	private final static String fusionCloudVersion = "1.0.10";
+	private final static String fusionCloudVersion = "2.0.0";
 
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
@@ -245,7 +246,37 @@ public class FusionClient {
 		LOGGER.info("TX:" + saleToPOI);
 
 		this.userSession.getAsyncRemote().sendObject(saleToPOI);
+	}
 
+	public void sendMessage(ResponseType message) throws FusionException {
+		sendMessage(message, MessageHeaderUtil.generateServiceID());
+	}
+
+	public void sendMessage(ResponseType message, String serviceID) throws FusionException {
+		sendMessage(messageParser.BuildSaleToPOIMessage(serviceID, saleID, poiID, message));
+	}
+
+	public void sendMessage(SaleToPOIResponse saleToPOI) throws FusionException {
+		LOGGER.info("Sending message to websocket server");
+
+		if (!isConnected()) {
+			LOGGER.info("Websocket connection is closed. Trying to connect..");
+			try{
+				this.connect();
+			} catch (FusionException e){
+				throw new FusionException("Connection is closed! " + e);
+			}
+
+		}
+
+		MessageCategory messageCategory = saleToPOI.getMessageHeader().getMessageCategory();
+		if((messageCategory != MessageCategory.Print) && (messageCategory != MessageCategory.Input)){
+			throw new FusionException("Unable to processing sending of message with Category="  + messageCategory);
+		}
+
+		LOGGER.info("TX-RX:" + saleToPOI);
+
+		this.userSession.getAsyncRemote().sendObject(saleToPOI);
 	}
 
 	public void setMessageHandler(MessageHandler msgHandler) {

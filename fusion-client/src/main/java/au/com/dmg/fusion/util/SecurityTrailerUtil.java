@@ -25,6 +25,8 @@ import au.com.dmg.fusion.exception.SecurityTrailerValidationException;
 import au.com.dmg.fusion.model.SaleToPOIString;
 import au.com.dmg.fusion.request.Request;
 import au.com.dmg.fusion.request.paymentrequest.carddata.KEKIdentifier;
+import au.com.dmg.fusion.response.Response;
+import au.com.dmg.fusion.response.ResponseType;
 import au.com.dmg.fusion.security.Crypto;
 import au.com.dmg.fusion.securitytrailer.AuthenticatedData;
 import au.com.dmg.fusion.securitytrailer.EncapsulatedContent;
@@ -39,6 +41,16 @@ public class SecurityTrailerUtil {
 	public static String KEK = null;
 
 	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, Request request, boolean useTestKeyIdentifier) throws FusionException{
+		String macBody = buildMACBody(messageHeader, request);
+		return generateSecurityTrailer(messageHeader, macBody, useTestKeyIdentifier);
+	}
+
+	public static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, ResponseType responseType, boolean useTestKeyIdentifier) throws FusionException{
+		String macBody = buildMACBody(messageHeader, responseType);
+		return generateSecurityTrailer(messageHeader, macBody, useTestKeyIdentifier);
+	}
+
+	private static SecurityTrailer generateSecurityTrailer(MessageHeader messageHeader, String macBody, boolean useTestKeyIdentifier) throws FusionException{
 		SecurityTrailer securityTrailer = null;
 		try {
 			// KEK encrypted key
@@ -47,7 +59,6 @@ public class SecurityTrailerUtil {
 			String encryptedHexKey = Crypto.byteArrayToHexString(encryptedKey).toUpperCase();
 
 			// MAC
-			String macBody = buildMACBody(messageHeader, request);
 			String hexKey = Crypto.byteArrayToHexString(key);
 			String MAC = Crypto.generateMAC(macBody, hexKey).toUpperCase();
 
@@ -144,6 +155,15 @@ public class SecurityTrailerUtil {
 		JsonAdapter<MessageHeader> jsonAdapter = moshi.adapter(MessageHeader.class);
 		String macBody = String.format("\"MessageHeader\":%s,\"%sRequest\":%s", jsonAdapter.toJson(messageHeader),
 				messageHeader.getMessageCategory(), request.toJson());
+
+		return macBody;
+	}
+
+	private static String buildMACBody(MessageHeader messageHeader, ResponseType responseType) {
+		Moshi moshi = new Moshi.Builder().build();
+		JsonAdapter<MessageHeader> jsonAdapter = moshi.adapter(MessageHeader.class);
+		String macBody = String.format("\"MessageHeader\":%s,\"%Response\":%s", jsonAdapter.toJson(messageHeader),
+				messageHeader.getMessageCategory(), responseType.toJson());
 
 		return macBody;
 	}
