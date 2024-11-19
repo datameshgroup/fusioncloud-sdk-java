@@ -162,7 +162,7 @@ public class SecurityTrailerUtil {
 	private static String buildMACBody(MessageHeader messageHeader, ResponseType responseType) {
 		Moshi moshi = new Moshi.Builder().build();
 		JsonAdapter<MessageHeader> jsonAdapter = moshi.adapter(MessageHeader.class);
-		String macBody = String.format("\"MessageHeader\":%s,\"%Response\":%s", jsonAdapter.toJson(messageHeader),
+		String macBody = String.format("\"MessageHeader\":%s,\"%sResponse\":%s", jsonAdapter.toJson(messageHeader),
 				messageHeader.getMessageCategory(), responseType.toJson());
 
 		return macBody;

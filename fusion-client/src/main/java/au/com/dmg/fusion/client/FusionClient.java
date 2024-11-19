@@ -34,7 +34,7 @@ import java.util.logging.Logger;
 		SaleToPOIDecoder.class })
 public class FusionClient {
 
-	private final static String fusionCloudVersion = "2.0.0";
+	private final static String fusionCloudVersion = "2.0.1";
 
 	private final static Logger LOGGER = Logger.getLogger(FusionClient.class.getName());
 
