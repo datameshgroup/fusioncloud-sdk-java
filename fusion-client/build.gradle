@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'com.datameshgroup.fusion'
-version '2.0.2'
+version '2.0.3'
 
 repositories {
     mavenCentral()
@@ -26,7 +26,7 @@ dependencies {
 //    implementation 'com.neovisionaries:nv-websocket-client:2.14'
     implementation 'org.glassfish.tyrus.bundles:tyrus-standalone-client:1.12'
     implementation 'com.squareup.moshi:moshi:1.13.0'
-    implementation 'com.datameshgroup.fusion:fusion-sdk:3.0.0'
+    implementation 'com.datameshgroup.fusion:fusion-sdk:3.0.4'
 }
 
 publishing {
@@ -69,11 +69,11 @@ publishing {
     }
     repositories {
         maven {
-            name = 'Sonatype'
-            url "https://s01.oss.sonatype.org/content/repositories/releases/"
+            name = "OSSRH"
+            url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
             credentials {
-                username = findProperty('sonatype.username')
-                password = findProperty('sonatype.password')
+                username = findProperty("sonatype.username") as String
+                password = findProperty("sonatype.password") as String
             }
         }
     }
